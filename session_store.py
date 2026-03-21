@@ -57,3 +57,7 @@ class SessionStore:
                 return False
             self._save()
             return True
+
+    def items(self) -> list[tuple[str, SessionRecord]]:
+        with self._lock:
+            return sorted(self._data.items(), key=lambda item: item[0])

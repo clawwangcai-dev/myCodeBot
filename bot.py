@@ -12,7 +12,10 @@ from urllib.request import Request, urlopen
 
 from claude_runner import ClaudeRunner, ClaudeRunnerError, format_text_reply
 from config import Settings, load_settings
+from runtime_state import BridgeRuntimeState
 from session_store import SessionStore
+from status_web import start_status_server
+from version_info import get_version_snapshot
 
 
 logging.basicConfig(
@@ -27,10 +30,19 @@ class TelegramAPIError(RuntimeError):
 
 
 class TelegramBot:
-    def __init__(self, settings: Settings, store: SessionStore, runner: ClaudeRunner) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        store: SessionStore,
+        runner: ClaudeRunner,
+        runtime_state: BridgeRuntimeState,
+        version_info: dict[str, str],
+    ) -> None:
         self._settings = settings
         self._store = store
         self._runner = runner
+        self._runtime_state = runtime_state
+        self._version_info = version_info
         self._offset = 0
         self._chat_locks: defaultdict[int, threading.Lock] = defaultdict(threading.Lock)
 
@@ -66,6 +78,7 @@ class TelegramBot:
         if not chat_id or not text:
             return
 
+        self._runtime_state.record_message()
         with self._chat_locks[chat_id]:
             self._dispatch_text(chat_id=chat_id, text=text)
 
@@ -75,7 +88,7 @@ class TelegramBot:
                 chat_id,
                 "Telegram 已连接到本机 Claude CLI。\n"
                 "直接发文本即可转发到 Claude。\n"
-                "命令: /status /clear",
+                "命令: /status /health /version /clear",
             )
             return
 
@@ -99,6 +112,14 @@ class TelegramBot:
                 )
             return
 
+        if text.startswith("/health"):
+            self._send_message(chat_id, self._build_health_text())
+            return
+
+        if text.startswith("/version"):
+            self._send_message(chat_id, self._build_version_text())
+            return
+
         if text.startswith("/clear"):
             cleared = self._store.clear(chat_id)
             self._send_message(
@@ -112,6 +133,7 @@ class TelegramBot:
             return
 
         self._send_message(chat_id, "请求已收到，正在调用本机 Claude CLI...")
+        self._runtime_state.request_started()
 
         try:
             record = self._store.get(chat_id)
@@ -128,8 +150,10 @@ class TelegramBot:
 
             for part in format_text_reply(response.text):
                 self._send_message(chat_id, part)
+            self._runtime_state.request_succeeded()
         except ClaudeRunnerError as exc:
             LOGGER.exception("Claude invocation failed for chat %s", chat_id)
+            self._runtime_state.request_failed(str(exc))
             for part in format_text_reply(f"Claude CLI 调用失败:\n{exc}"):
                 self._send_message(chat_id, part)
 
@@ -141,6 +165,7 @@ class TelegramBot:
         final_session_id = record.session_id if record else None
         last_preview = None
         last_edit_at = 0.0
+        self._runtime_state.request_started()
 
         try:
             if record is None:
@@ -182,8 +207,10 @@ class TelegramBot:
                     self._edit_message(chat_id, message_id, parts[0])
                 for part in parts[1:]:
                     self._send_message(chat_id, part)
+            self._runtime_state.request_succeeded()
         except ClaudeRunnerError as exc:
             LOGGER.exception("Claude streaming invocation failed for chat %s", chat_id)
+            self._runtime_state.request_failed(str(exc))
             error_text = f"Claude CLI 调用失败:\n{exc}"
             if message_id is not None:
                 parts = format_text_reply(error_text)
@@ -193,6 +220,32 @@ class TelegramBot:
             else:
                 for part in format_text_reply(error_text):
                     self._send_message(chat_id, part)
+
+    def _build_health_text(self) -> str:
+        snapshot = self._runtime_state.snapshot()
+        return (
+            "Bridge health:\n"
+            f"started_at: {snapshot.started_at}\n"
+            f"messages_total: {snapshot.messages_total}\n"
+            f"requests_total: {snapshot.requests_total}\n"
+            f"active_requests: {snapshot.active_requests}\n"
+            f"last_success_at: {snapshot.last_success_at or 'none'}\n"
+            f"last_error_at: {snapshot.last_error_at or 'none'}\n"
+            f"last_error: {snapshot.last_error or 'none'}\n"
+            f"session_count: {len(self._store.items())}\n"
+            f"streaming: {self._settings.claude_streaming}\n"
+            f"status_web: {'on' if self._settings.status_web_enabled else 'off'}"
+        )
+
+    def _build_version_text(self) -> str:
+        return (
+            "Bridge version:\n"
+            f"git_commit: {self._version_info['git_commit']}\n"
+            f"claude_version: {self._version_info['claude_version']}\n"
+            f"python: {self._version_info['python']}\n"
+            f"platform: {self._version_info['platform']}\n"
+            f"claude_bin: {self._version_info['claude_bin']}"
+        )
 
     @staticmethod
     def _make_live_preview(text: str, limit: int = 3900) -> str:
@@ -245,7 +298,11 @@ def main() -> None:
     settings = load_settings()
     store = SessionStore(settings.session_store_path)
     runner = ClaudeRunner(settings)
-    bot = TelegramBot(settings, store, runner)
+    runtime_state = BridgeRuntimeState()
+    version_info = get_version_snapshot(settings)
+    if settings.status_web_enabled:
+        start_status_server(settings, store, runtime_state, version_info)
+    bot = TelegramBot(settings, store, runner, runtime_state, version_info)
     bot.run_forever()
 
 

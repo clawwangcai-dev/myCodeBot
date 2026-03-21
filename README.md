@@ -43,6 +43,8 @@ python3 install_service.py
 
 - `/start`
 - `/status`
+- `/health`
+- `/version`
 - `/clear`
 
 ## Notes
@@ -52,6 +54,7 @@ python3 install_service.py
 - Set `CLAUDE_STREAMING=true` to switch to `--output-format stream-json --include-partial-messages` and stream partial replies by editing the in-flight Telegram message.
 - The bridge can load a service-specific Claude settings override with `CLAUDE_SETTINGS_FILE`; the bundled example disables `semgrep` plus the explanatory/learning output-style plugins only for this Telegram service.
 - On this machine, the `systemd` unit also needs `node` on `PATH` because a Claude SessionEnd hook invokes Node.js.
+- A local-only status page is enabled by default at `http://127.0.0.1:8765/` with JSON at `http://127.0.0.1:8765/api/status`.
 - Keep `CLAUDE_WORKDIR` narrow and set tool permissions conservatively before exposing this bot to real users.
 
 ## Service Install

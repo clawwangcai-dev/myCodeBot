@@ -27,6 +27,9 @@ class Settings:
     telegram_edit_interval_seconds: float
     telegram_api_base: str
     session_store_path: Path
+    status_web_enabled: bool
+    status_web_host: str
+    status_web_port: int
 
 
 def _parse_bool(value: str | None, *, default: bool = False) -> bool:
@@ -61,6 +64,7 @@ def load_settings() -> Settings:
     poll_timeout_raw = os.environ.get('TELEGRAM_POLL_TIMEOUT', '30').strip() or '30'
     claude_timeout_raw = os.environ.get('CLAUDE_TIMEOUT_SECONDS', '300').strip() or '300'
     edit_interval_raw = os.environ.get('TELEGRAM_EDIT_INTERVAL_SECONDS', '1.0').strip() or '1.0'
+    status_web_port_raw = os.environ.get('STATUS_WEB_PORT', '8765').strip() or '8765'
 
     return Settings(
         telegram_bot_token=token,
@@ -77,4 +81,7 @@ def load_settings() -> Settings:
         telegram_edit_interval_seconds=max(0.2, float(edit_interval_raw)),
         telegram_api_base=os.environ.get('TELEGRAM_API_BASE', 'https://api.telegram.org').rstrip('/'),
         session_store_path=store_path,
+        status_web_enabled=_parse_bool(os.environ.get('STATUS_WEB_ENABLED'), default=True),
+        status_web_host=os.environ.get('STATUS_WEB_HOST', '127.0.0.1').strip() or '127.0.0.1',
+        status_web_port=max(1, int(status_web_port_raw)),
     )
