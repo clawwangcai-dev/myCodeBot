@@ -5,6 +5,7 @@ import json
 import logging
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 from typing import Any
 
 from config import Settings
@@ -41,10 +42,14 @@ def _build_handler(
 ):
     class StatusHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
-            if self.path == "/api/status":
+            parsed = urlparse(self.path)
+            if not _is_authorized(settings, self.headers.get("Authorization"), parsed.query):
+                self._send_unauthorized()
+                return
+            if parsed.path == "/api/status":
                 self._send_json(_status_payload(settings, store, runtime_state, version_info))
                 return
-            if self.path == "/":
+            if parsed.path == "/":
                 self._send_html(_render_html(_status_payload(settings, store, runtime_state, version_info)))
                 return
             self.send_error(404, "Not Found")
@@ -68,7 +73,31 @@ def _build_handler(
             self.end_headers()
             self.wfile.write(encoded)
 
+        def _send_unauthorized(self) -> None:
+            encoded = b"Unauthorized"
+            self.send_response(401)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("WWW-Authenticate", 'Bearer realm="telegram-claude-bridge-status"')
+            self.send_header("Content-Length", str(len(encoded)))
+            self.end_headers()
+            self.wfile.write(encoded)
+
     return StatusHandler
+
+
+def _is_authorized(settings: Settings, authorization_header: str | None, query: str) -> bool:
+    expected = settings.status_web_token
+    if not expected:
+        return True
+
+    if authorization_header:
+        scheme, _, token = authorization_header.partition(" ")
+        if scheme.lower() == "bearer" and token == expected:
+            return True
+
+    params = parse_qs(query, keep_blank_values=False)
+    query_tokens = params.get("token") or []
+    return expected in query_tokens
 
 
 def _status_payload(

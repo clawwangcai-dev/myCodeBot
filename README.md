@@ -25,6 +25,10 @@ export SESSION_STORE_PATH=sessions.json
 export TELEGRAM_POLL_TIMEOUT=30
 export TELEGRAM_EDIT_INTERVAL_SECONDS=1.0
 export TELEGRAM_API_BASE=https://api.telegram.org
+export STATUS_WEB_ENABLED=true
+export STATUS_WEB_HOST=127.0.0.1
+export STATUS_WEB_PORT=8765
+export STATUS_WEB_TOKEN=
 ```
 
 ## Run
@@ -55,6 +59,7 @@ python3 install_service.py
 - The bridge can load a service-specific Claude settings override with `CLAUDE_SETTINGS_FILE`; the bundled example disables `semgrep` plus the explanatory/learning output-style plugins only for this Telegram service.
 - On this machine, the `systemd` unit also needs `node` on `PATH` because a Claude SessionEnd hook invokes Node.js.
 - A local-only status page is enabled by default at `http://127.0.0.1:8765/` with JSON at `http://127.0.0.1:8765/api/status`.
+- If you set `STATUS_WEB_TOKEN`, the page requires either `Authorization: Bearer <token>` or `?token=<token>`.
 - Keep `CLAUDE_WORKDIR` narrow and set tool permissions conservatively before exposing this bot to real users.
 
 ## Service Install

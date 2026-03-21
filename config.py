@@ -30,6 +30,7 @@ class Settings:
     status_web_enabled: bool
     status_web_host: str
     status_web_port: int
+    status_web_token: str | None
 
 
 def _parse_bool(value: str | None, *, default: bool = False) -> bool:
@@ -84,4 +85,5 @@ def load_settings() -> Settings:
         status_web_enabled=_parse_bool(os.environ.get('STATUS_WEB_ENABLED'), default=True),
         status_web_host=os.environ.get('STATUS_WEB_HOST', '127.0.0.1').strip() or '127.0.0.1',
         status_web_port=max(1, int(status_web_port_raw)),
+        status_web_token=os.environ.get('STATUS_WEB_TOKEN', '').strip() or None,
     )
