@@ -59,7 +59,7 @@ python3 install_service.py
 The preferred path is the auto-installer. It detects Linux, macOS, or Windows and installs the matching background service:
 
 ```bash
-python3 install_service.py
+python3 install_service.py install
 ```
 
 It creates a platform-specific env file, copies the bridge-specific Claude settings override, installs the service, and starts it unless you pass `--no-start`.
@@ -73,9 +73,12 @@ Platform targets:
 Examples:
 
 ```bash
-python3 install_service.py
-python3 install_service.py --platform macos --no-start
-python3 install_service.py --platform windows
+python3 install_service.py install
+python3 install_service.py install --platform macos --no-start
+python3 install_service.py install --platform windows
+python3 install_service.py status
+python3 install_service.py restart
+python3 install_service.py uninstall
 ```
 
 The runtime path is unified across platforms through [service_entry.py](/home/chao/projects/claudeBot/service_entry.py), which loads the env file and patches `PATH` for common Claude/Node installations before starting the bot.
