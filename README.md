@@ -38,6 +38,12 @@ export STATUS_WEB_HOST=127.0.0.1
 export STATUS_WEB_PORT=8765
 export STATUS_WEB_TOKEN=
 export APPROVAL_STORE_PATH=approval_prefs.json
+export MEDIA_STORE_PATH=.telegram-media
+export WHISPER_BIN=whisper
+export WHISPER_MODEL=base
+export WHISPER_FALLBACK_MODELS=tiny
+export WHISPER_LANGUAGE=
+export WHISPER_THREADS=2
 ```
 
 ### Run
@@ -74,6 +80,9 @@ python3 install_service.py
 - `/approve` retries the blocked task in the same chat using `CLAUDE_APPROVAL_PERMISSION_MODE` (defaults to `acceptEdits`) instead of permanently loosening permissions for all requests.
 - `/approve-always` stores a per-chat preference and will keep auto-continuing future edit/write permission requests in that chat until you disable it with `/approve-manual`.
 - `/approve_bypass` stores a per-chat preference using `bypassPermissions`. This is broader and is intended for cases like `git add`, `git commit`, or other Bash-level actions. Use it carefully.
+- The bridge now accepts Telegram image messages and voice/audio messages. Images are downloaded into the workspace media directory and passed to Claude as local files; voice messages are transcribed with the local `whisper` CLI before forwarding to Claude.
+- The bridge does not auto-install Whisper. It first uses the system `whisper` if found; otherwise set `WHISPER_BIN` to the actual executable path.
+- Voice transcription defaults to a conservative `base` model and falls back to `tiny` to reduce OOM risk on smaller machines.
 - The bridge can load a service-specific Claude settings override with `CLAUDE_SETTINGS_FILE`; the bundled example disables `semgrep` plus the explanatory/learning output-style plugins only for this Telegram service.
 - On this machine, the `systemd` unit also needs `node` on `PATH` because a Claude SessionEnd hook invokes Node.js.
 - A local-only status page is enabled by default at `http://127.0.0.1:8765/` with JSON at `http://127.0.0.1:8765/api/status`.
@@ -166,6 +175,12 @@ export STATUS_WEB_HOST=127.0.0.1
 export STATUS_WEB_PORT=8765
 export STATUS_WEB_TOKEN=
 export APPROVAL_STORE_PATH=approval_prefs.json
+export MEDIA_STORE_PATH=.telegram-media
+export WHISPER_BIN=whisper
+export WHISPER_MODEL=base
+export WHISPER_FALLBACK_MODELS=tiny
+export WHISPER_LANGUAGE=
+export WHISPER_THREADS=2
 ```
 
 ### 运行
@@ -202,6 +217,9 @@ python3 install_service.py
 - `/approve` 使用 `CLAUDE_APPROVAL_PERMISSION_MODE`（默认为 `acceptEdits`）在同一聊天中重试被阻止的任务，而不是永久放宽所有请求的权限。
 - `/approve-always` 会为当前 chat 保存一个持久化偏好；之后检测到编辑/写入权限请求时会持续自动续跑，直到你用 `/approve-manual` 显式关闭。
 - `/approve_bypass` 会为当前 chat 保存一个更高权限的持久化偏好，适合 `git add`、`git commit` 或其他 Bash 级动作；它会使用 `bypassPermissions`，风险更高，开启时要明确知道自己在放开什么。
+- 现在已支持 Telegram 图片和语音/音频消息：图片会下载到工作目录下的媒体目录，并作为本地文件路径交给 Claude；语音消息会先通过本机 `whisper` CLI 转写，再把转写文本发给 Claude。
+- bridge 不会自动安装 Whisper；它会优先复用系统里已有的 `whisper`。如果未找到，请在环境变量里把 `WHISPER_BIN` 指到实际可执行文件路径。
+- 为了降低小内存机器上的 OOM 风险，语音转写默认使用较保守的 `base` 模型，并在失败时自动降级到 `tiny`。
 - 桥接服务可通过 `CLAUDE_SETTINGS_FILE` 加载服务专属的 Claude 设置覆盖文件；附带的示例仅为此 Telegram 服务禁用了 `semgrep` 及说明性/学习性输出风格插件。
 - 在本机上，`systemd` 单元还需要 `node` 在 `PATH` 中，因为 Claude SessionEnd 钩子会调用 Node.js。
 - 默认启用本地状态页面：`http://127.0.0.1:8765/`，JSON 接口：`http://127.0.0.1:8765/api/status`。
