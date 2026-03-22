@@ -66,6 +66,7 @@ python3 install_service.py
 ### Commands
 
 - `/start` - Start session
+- `/help` - Show help
 - `/status` - View status
 - `/health` - Health check
 - `/version` - View version
@@ -210,6 +211,7 @@ python3 install_service.py
 ### 命令
 
 - `/start` - 开始会话
+- `/help` - 查看帮助
 - `/status` - 查看状态
 - `/health` - 健康检查
 - `/version` - 查看版本

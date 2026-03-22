@@ -96,7 +96,8 @@ class CodexRunner:
                 "--json",
             ]
 
-        command.extend(["-C", str(self._settings.claude_workdir)])
+        if not resume_session_id:
+            command.extend(["-C", str(self._settings.claude_workdir)])
 
         if self._settings.codex_model:
             command.extend(["-m", self._settings.codex_model])
@@ -104,8 +105,7 @@ class CodexRunner:
         for image_path in image_paths:
             command.extend(["-i", image_path])
 
-        approval_mode = permission_mode_override or self._settings.claude_permission_mode or ""
-        if approval_mode == "bypassPermissions":
+        if self._should_bypass(permission_mode_override):
             command.append("--dangerously-bypass-approvals-and-sandbox")
         else:
             command.append("--full-auto")
@@ -116,6 +116,16 @@ class CodexRunner:
             command.append(prompt)
 
         return command
+
+    def _should_bypass(self, permission_mode_override: str | None) -> bool:
+        approval_mode = permission_mode_override or self._settings.claude_permission_mode or ""
+        if approval_mode == "bypassPermissions":
+            return True
+
+        return (
+            self._settings.codex_sandbox == "danger-full-access"
+            or self._settings.codex_approval_policy == "never"
+        )
 
     def _run(
         self,

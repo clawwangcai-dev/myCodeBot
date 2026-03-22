@@ -72,6 +72,15 @@ class TelegramBot:
     def _provider_label(self) -> str:
         return self._settings.provider
 
+    def _help_text(self) -> str:
+        return (
+            f"Telegram 已连接到本机 {self._provider_label()} 后端。\n"
+            f"直接发文本即可转发到 {self._provider_label()}。\n"
+            "也支持图片和语音消息。\n"
+            "命令: /help /status /health /version /clear /approve /deny "
+            "/approve_always /approve_bypass /approve_manual"
+        )
+
     def run_forever(self) -> None:
         LOGGER.info("Starting Telegram polling against %s", self._settings.telegram_api_base)
         self._sync_commands()
@@ -141,13 +150,11 @@ class TelegramBot:
 
     def _dispatch_text(self, chat_id: int, text: str) -> None:
         if text.startswith("/start"):
-            self._send_message(
-                chat_id,
-                f"Telegram 已连接到本机 {self._provider_label()} 后端。\n"
-                f"直接发文本即可转发到 {self._provider_label()}。\n"
-                "命令: /status /health /version /clear /approve /deny /approve_always /approve_bypass /approve_manual\n"
-                "还支持图片和语音消息。",
-            )
+            self._send_message(chat_id, self._help_text())
+            return
+
+        if text.startswith("/help"):
+            self._send_message(chat_id, self._help_text())
             return
 
         if text.startswith("/status"):
@@ -185,12 +192,11 @@ class TelegramBot:
             return
 
         if text.startswith("/clear"):
-            cleared = self._store.clear(chat_id)
-            self._approvals.clear(chat_id)
             self._send_message(
                 chat_id,
-                "已清除当前会话。" if cleared else "当前没有可清除的会话。",
+                "已清除当前会话。" if self._store.clear(chat_id) else "当前没有可清除的会话。",
             )
+            self._approvals.clear(chat_id)
             return
 
         if text.startswith("/approve_bypass") or text.startswith("/approve-bypass"):
@@ -687,6 +693,7 @@ class TelegramBot:
     def _sync_commands(self) -> None:
         commands = [
             {"command": "start", "description": "Start bridge"},
+            {"command": "help", "description": "Show bot help"},
             {"command": "status", "description": "Show chat status"},
             {"command": "health", "description": "Show bridge health"},
             {"command": "version", "description": "Show version info"},
@@ -698,12 +705,17 @@ class TelegramBot:
             {"command": "deny", "description": "Deny pending request"},
         ]
         try:
-            self._call(
-                "setMyCommands",
-                {
-                    "commands": json.dumps(commands, ensure_ascii=False),
-                },
-            )
+            for scope in (
+                {"type": "default"},
+                {"type": "all_private_chats"},
+            ):
+                self._call(
+                    "setMyCommands",
+                    {
+                        "scope": json.dumps(scope, ensure_ascii=False),
+                        "commands": json.dumps(commands, ensure_ascii=False),
+                    },
+                )
         except TelegramAPIError:
             LOGGER.exception("Failed to sync Telegram bot commands")
 
