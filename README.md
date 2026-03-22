@@ -7,349 +7,768 @@
 <a name="english"></a>
 ## English
 
-Minimal bridge that forwards Telegram messages to a local agent CLI backend. The bridge currently supports both `claude` and `codex`, and keeps one backend session per Telegram chat.
+This project turns Telegram into a remote entrypoint for a local agent CLI.
 
-### Environment
+It currently supports:
+- `claude`
+- `codex`
+- single bot mode
+- multi-bot mode
+- text, image, and voice messages
+- per-chat project directories
 
-Set these variables before starting:
+The tutorial below starts from zero and ends with multiple Telegram bots talking to local Claude Code and Codex on the same machine.
 
-```bash
-export TELEGRAM_BOT_TOKEN=...
-export BOTS_CONFIG_FILE=
-export BRIDGE_PROVIDER=claude
-export CLAUDE_BIN=claude
-export CLAUDE_WORKDIR=~/projects/safe-repo
-export CLAUDE_SETTINGS_FILE=~/.config/telegram-claude-bridge/claude-settings.json
-export CLAUDE_PERMISSION_MODE=default
-export CLAUDE_APPROVAL_PERMISSION_MODE=acceptEdits
-export CLAUDE_ALLOWED_TOOLS=
-export CLAUDE_DISALLOWED_TOOLS=Bash(rm),Bash(git reset)
-export CLAUDE_TIMEOUT_SECONDS=300
-export CLAUDE_STREAMING=true
-```
+### 1. What You Need
 
-Optional:
+Before you start, make sure this machine already has:
+- Python 3
+- `claude` CLI
+- `codex` CLI if you want Codex
+- `node` on `PATH` if your Claude hooks need it
+- `whisper` on `PATH` if you want voice transcription
+- at least one Telegram bot token from BotFather
 
-```bash
-export SESSION_STORE_PATH=sessions.json
-export WORKDIR_STORE_PATH=chat_workdirs.json
-export TELEGRAM_POLL_TIMEOUT=30
-export TELEGRAM_EDIT_INTERVAL_SECONDS=1.0
-export TELEGRAM_API_BASE=https://api.telegram.org
-export STATUS_WEB_ENABLED=true
-export STATUS_WEB_HOST=127.0.0.1
-export STATUS_WEB_PORT=8765
-export STATUS_WEB_TOKEN=
-export APPROVAL_STORE_PATH=approval_prefs.json
-export MEDIA_STORE_PATH=.telegram-media
-export WHISPER_BIN=whisper
-export WHISPER_MODEL=base
-export WHISPER_FALLBACK_MODELS=tiny
-export WHISPER_LANGUAGE=
-export WHISPER_THREADS=2
-export CODEX_BIN=codex
-export CODEX_MODEL=
-export CODEX_SANDBOX=danger-full-access
-export CODEX_APPROVAL_POLICY=never
-```
+Important:
+- This bridge does not install Claude, Codex, or Whisper for you.
+- Telegram is only the chat frontend. Real execution still happens locally on this machine.
 
-### Run
+### 2. Clone The Project
 
 ```bash
-python3 bot.py
+git clone https://github.com/clawwangcai-dev/myCodeBot.git ~/myCodeBot
+cd ~/myCodeBot
 ```
 
-Or install a background service with automatic platform detection:
+### 3. Create The Runtime Config
+
+Copy the example env file:
 
 ```bash
-python3 install_service.py
+mkdir -p ~/.config/telegram-claude-bridge
+cp ~/myCodeBot/systemd/telegram-claude-bridge.env.example ~/.config/telegram-claude-bridge/env
+cp ~/myCodeBot/systemd/telegram-claude-bridge.claude-settings.json ~/.config/telegram-claude-bridge/claude-settings.json
 ```
 
-### Commands
+Edit the env file:
 
-- `/start` - Start session
-- `/help` - Show help
-- `/status` - View status
-- `/health` - Health check
-- `/version` - View version
-- `/clear` - Clear session
-- `/project` - Set a per-chat project directory
-- `/project_status` - Show the current chat project directory
-- `/approve` - Approve pending permission request
-- `/approve_always` - Always auto-approve future edit/write requests in this chat
-- `/approve_bypass` - Always auto-approve broader permissions including Bash/git in this chat
-- `/approve_manual` - Turn off auto-approve for this chat
-- `/deny` - Deny pending permission request
+```bash
+$EDITOR ~/.config/telegram-claude-bridge/env
+```
 
-### Notes
+For a minimal single-bot setup, fill these first:
 
-- Each Telegram chat is serialized with a per-chat lock to avoid concurrent writes into the same backend session.
-- `/project ~/projects/my-new-app` binds the current Telegram chat to a specific working directory, creates it if needed, and clears the old session so the next prompt starts cleanly in that folder. For safety, the target directory must stay under the configured default `CLAUDE_WORKDIR`.
-- `/project default` removes the per-chat override and returns the chat to the default `CLAUDE_WORKDIR`.
-- Set `BRIDGE_PROVIDER=claude` to use the Claude CLI backend or `BRIDGE_PROVIDER=codex` to use the Codex CLI backend.
-- The Claude backend uses `claude -p ... --output-format json` / `stream-json`.
-- The Codex backend uses `codex exec --json` / `codex exec resume --json`.
-- On this Linux machine, Codex `workspace-write` / `--full-auto` may still hit a local `bwrap: Unknown option --argv0` failure on model-generated shell commands even after the bridge session is cleared. The verified workaround is `CODEX_SANDBOX=danger-full-access` with `CODEX_APPROVAL_POLICY=never`, which makes the bridge invoke Codex with `--dangerously-bypass-approvals-and-sandbox`.
-- Set `CLAUDE_STREAMING=true` to switch to `--output-format stream-json --include-partial-messages` and stream partial replies by editing the in-flight Telegram message.
-- Keep the bridge default at `CLAUDE_PERMISSION_MODE=default`; when the backend replies that it needs write/edit permission, the bridge records a one-shot pending approval and you can continue from Telegram with `/approve` or cancel with `/deny`.
-- `/approve` retries the blocked task in the same chat using `CLAUDE_APPROVAL_PERMISSION_MODE` (defaults to `acceptEdits`) instead of permanently loosening permissions for all requests.
-- `/approve_always` stores a per-chat preference and will keep auto-continuing future edit/write permission requests in that chat until you disable it with `/approve_manual`.
-- `/approve_bypass` stores a per-chat preference using `bypassPermissions`. This is broader and is intended for cases like `git add`, `git commit`, or other Bash-level actions. Use it carefully.
-- The bridge now accepts Telegram image messages and voice/audio messages. Images are downloaded into the workspace media directory and passed to the selected backend; voice messages are transcribed with the local `whisper` CLI before forwarding.
-- The bridge does not auto-install Whisper. It first uses the system `whisper` if found; otherwise set `WHISPER_BIN` to the actual executable path.
-- Voice transcription defaults to a conservative `base` model and falls back to `tiny` to reduce OOM risk on smaller machines.
-- The Claude backend can load a service-specific settings override with `CLAUDE_SETTINGS_FILE`; the bundled example disables `semgrep` plus the explanatory/learning output-style plugins only for this Telegram service.
-- On this machine, the `systemd` unit also needs `node` on `PATH` because a Claude SessionEnd hook invokes Node.js.
-- A local-only status page is enabled by default at `http://127.0.0.1:8765/` with JSON at `http://127.0.0.1:8765/api/status`.
-- If you set `STATUS_WEB_TOKEN`, the page requires either `Authorization: Bearer <token>` or `?token=<token>`.
-- Keep `CLAUDE_WORKDIR` narrow and set tool permissions conservatively before exposing this bot to real users.
+```bash
+TELEGRAM_BOT_TOKEN=your_bot_token
+BRIDGE_PROVIDER=claude
+CLAUDE_WORKDIR=~/projects/safe-repo
+CLAUDE_SETTINGS_FILE=~/.config/telegram-claude-bridge/claude-settings.json
+CLAUDE_STREAMING=true
+```
 
-### Multi-Bot Mode
+If you want Codex instead:
 
-Mode 1 is supported: multiple Telegram bots, each pinned to a fixed backend such as Claude or Codex.
+```bash
+BRIDGE_PROVIDER=codex
+CODEX_SANDBOX=danger-full-access
+CODEX_APPROVAL_POLICY=never
+```
 
-1. Create a config file from `~/myCodeBot/bots.example.json`.
-2. Give each bot its own `TELEGRAM_BOT_TOKEN`.
-3. Pin each bot with `BRIDGE_PROVIDER=claude` or `BRIDGE_PROVIDER=codex`.
-4. If you enable the local status web on more than one bot, each bot must use a different `STATUS_WEB_PORT`.
+Important safety rule:
+- `CLAUDE_WORKDIR` is the default workspace root.
+- Per-chat `/project` switching is allowed only inside this root.
 
-Example:
+### 4. Start The Bridge
+
+Foreground:
+
+```bash
+python3 ~/myCodeBot/bot.py
+```
+
+Background service:
+
+```bash
+python3 ~/myCodeBot/install_service.py install
+python3 ~/myCodeBot/install_service.py restart
+python3 ~/myCodeBot/install_service.py status
+```
+
+Linux manual service:
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp ~/myCodeBot/systemd/telegram-claude-bridge.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now telegram-claude-bridge.service
+journalctl --user -u telegram-claude-bridge.service -f
+```
+
+### 5. Test The First Bot In Telegram
+
+Open the Telegram bot and send:
+
+```text
+/start
+```
+
+Then try:
+
+```text
+/status
+```
+
+Then send a normal prompt:
+
+```text
+who are you?
+```
+
+### 6. Core Telegram Commands
+
+- `/start` show help
+- `/help` show help
+- `/status` show chat status
+- `/health` show bridge runtime health
+- `/version` show provider and binary versions
+- `/clear` clear the current backend session
+- `/project <path>` bind this chat to a project directory
+- `/project_status` show the current chat project directory
+- `/approve` approve one pending permission request
+- `/approve_always` auto-approve future edit/write requests in this chat
+- `/approve_bypass` auto-approve broader Bash/git-level requests in this chat
+- `/approve_manual` turn auto-approve off
+- `/deny` deny the pending request
+
+### 7. Start A New Project From Telegram
+
+If your default root is:
+
+```bash
+CLAUDE_WORKDIR=~/projects
+```
+
+Then in Telegram you can do:
+
+```text
+/project ~/projects/my-new-app
+```
+
+After that:
+
+```text
+Initialize a new FastAPI project here.
+```
+
+What `/project` does:
+- creates the directory if needed
+- binds the current Telegram chat to that directory
+- clears the old backend session
+
+What it does not allow:
+- switching outside the configured default `CLAUDE_WORKDIR`
+- using arbitrary paths like `/etc`
+
+To return to the default root:
+
+```text
+/project default
+```
+
+### 8. Switching Between Claude And Codex
+
+In single-bot mode, switching is global.
+
+Use Claude:
+
+```bash
+BRIDGE_PROVIDER=claude
+```
+
+Use Codex:
+
+```bash
+BRIDGE_PROVIDER=codex
+CODEX_SANDBOX=danger-full-access
+CODEX_APPROVAL_POLICY=never
+```
+
+Then restart the service and in Telegram send:
+
+```text
+/clear
+```
+
+Note for this Linux machine:
+- Codex `workspace-write` / `--full-auto` may hit `bwrap: Unknown option --argv0`
+- the verified workaround here is:
+  - `CODEX_SANDBOX=danger-full-access`
+  - `CODEX_APPROVAL_POLICY=never`
+
+### 9. Images And Voice
+
+Supported now:
+- text messages
+- image messages
+- voice/audio messages
+
+Image flow:
+- Telegram file downloads locally
+- the local image path is passed to the selected backend
+
+Voice flow:
+- Telegram file downloads locally
+- local `whisper` transcribes it
+- the transcript is forwarded to the backend
+
+If voice fails, check:
+- `WHISPER_BIN`
+- memory usage
+- model size
+
+Recommended conservative defaults:
+
+```bash
+WHISPER_MODEL=base
+WHISPER_FALLBACK_MODELS=tiny
+WHISPER_THREADS=2
+```
+
+### 10. Single-Bot Recommended Env
+
+This is a solid starting point:
+
+```bash
+TELEGRAM_BOT_TOKEN=your_bot_token
+BOTS_CONFIG_FILE=
+BRIDGE_PROVIDER=codex
+CLAUDE_BIN=claude
+CLAUDE_WORKDIR=~/projects
+CLAUDE_SETTINGS_FILE=~/.config/telegram-claude-bridge/claude-settings.json
+CLAUDE_PERMISSION_MODE=default
+CLAUDE_APPROVAL_PERMISSION_MODE=acceptEdits
+CLAUDE_TIMEOUT_SECONDS=300
+CLAUDE_STREAMING=true
+TELEGRAM_POLL_TIMEOUT=30
+TELEGRAM_EDIT_INTERVAL_SECONDS=1.0
+SESSION_STORE_PATH=~/myCodeBot/sessions.json
+WORKDIR_STORE_PATH=~/myCodeBot/chat_workdirs.json
+APPROVAL_STORE_PATH=~/myCodeBot/approval_prefs.json
+MEDIA_STORE_PATH=~/myCodeBot/.telegram-media
+WHISPER_BIN=whisper
+WHISPER_MODEL=base
+WHISPER_FALLBACK_MODELS=tiny
+WHISPER_THREADS=2
+CODEX_BIN=codex
+CODEX_SANDBOX=danger-full-access
+CODEX_APPROVAL_POLICY=never
+STATUS_WEB_ENABLED=true
+STATUS_WEB_HOST=127.0.0.1
+STATUS_WEB_PORT=8765
+```
+
+### 11. Move From One Bot To Multiple Bots
+
+Mode 1 means:
+- each Telegram bot has its own token
+- each Telegram bot is pinned to one backend
+- one can be Claude, another can be Codex
+
+Use the example:
 
 ```bash
 cp ~/myCodeBot/bots.example.json ~/.config/telegram-claude-bridge/bots.json
 $EDITOR ~/.config/telegram-claude-bridge/bots.json
 ```
 
-Then set this in the env file:
+Example structure:
+
+```json
+{
+  "bots": [
+    {
+      "BRIDGE_NAME": "claude_bot",
+      "TELEGRAM_BOT_TOKEN": "token-for-claude-bot",
+      "BRIDGE_PROVIDER": "claude",
+      "CLAUDE_WORKDIR": "~/projects",
+      "STATUS_WEB_ENABLED": "true",
+      "STATUS_WEB_PORT": "8766"
+    },
+    {
+      "BRIDGE_NAME": "codex_bot",
+      "TELEGRAM_BOT_TOKEN": "token-for-codex-bot",
+      "BRIDGE_PROVIDER": "codex",
+      "CLAUDE_WORKDIR": "~/projects",
+      "CODEX_SANDBOX": "danger-full-access",
+      "CODEX_APPROVAL_POLICY": "never",
+      "STATUS_WEB_ENABLED": "true",
+      "STATUS_WEB_PORT": "8765"
+    }
+  ]
+}
+```
+
+Then enable multi-bot mode in the env file:
 
 ```bash
 BOTS_CONFIG_FILE=~/.config/telegram-claude-bridge/bots.json
 ```
 
-When `BOTS_CONFIG_FILE` is set, the bridge starts one polling worker per bot entry. For multi-bot mode, session, approval, workdir, and media stores default to separate `data/<bot-name>/...` paths automatically unless you override them per bot.
-
-### Service Install
-
-The preferred path is the auto-installer. It detects Linux, macOS, or Windows and installs the matching background service:
+Then restart:
 
 ```bash
-python3 install_service.py install
+systemctl --user restart telegram-claude-bridge.service
 ```
 
-It creates a platform-specific env file, copies the bridge-specific Claude settings override, installs the service, and starts it unless you pass `--no-start`.
+Multi-bot rules:
+- every bot must use a different `TELEGRAM_BOT_TOKEN`
+- every bot should use a unique `BRIDGE_NAME`
+- if multiple bots expose status pages, each must use a different `STATUS_WEB_PORT`
+- per-bot stores default to:
+  - `data/<bot-name>/sessions.json`
+  - `data/<bot-name>/chat_workdirs.json`
+  - `data/<bot-name>/approval_prefs.json`
+  - `data/<bot-name>/.telegram-media`
 
-Platform targets:
+### 12. Check Status
 
-- Linux: `systemd --user`
-- macOS: `launchd` user agent
-- Windows: Task Scheduler (`schtasks`)
+Single-bot local status page:
 
-Examples:
+```text
+http://127.0.0.1:8765/
+http://127.0.0.1:8765/api/status
+```
+
+If you set:
 
 ```bash
-python3 install_service.py install
-python3 install_service.py install --platform macos --no-start
-python3 install_service.py install --platform windows
-python3 install_service.py status
-python3 install_service.py restart
-python3 install_service.py uninstall
+STATUS_WEB_TOKEN=your_secret
 ```
 
-The runtime path is unified across platforms through `~/myCodeBot/service_entry.py`, which loads the env file and patches `PATH` for common Claude/Node installations before starting the bot.
+Then access with:
+- `Authorization: Bearer your_secret`
+- or `?token=your_secret`
 
-#### Linux Manual Install
+### 13. Common Problems
 
-If you still want the manual Linux path:
+`claude exited with code 1`
+- check `CLAUDE_BIN`
+- check `CLAUDE_SETTINGS_FILE`
+- run `claude --version`
 
-```bash
-mkdir -p ~/.config/systemd/user ~/.config/telegram-claude-bridge
-cp ~/myCodeBot/systemd/telegram-claude-bridge.service ~/.config/systemd/user/
-cp ~/myCodeBot/systemd/telegram-claude-bridge.env.example ~/.config/telegram-claude-bridge/env
-cp ~/myCodeBot/systemd/telegram-claude-bridge.claude-settings.json ~/.config/telegram-claude-bridge/claude-settings.json
-$EDITOR ~/.config/telegram-claude-bridge/env
-systemctl --user daemon-reload
-systemctl --user enable --now telegram-claude-bridge.service
-journalctl --user -u telegram-claude-bridge.service -f
-```
+`codex` keeps failing on shell commands
+- use:
+  - `CODEX_SANDBOX=danger-full-access`
+  - `CODEX_APPROVAL_POLICY=never`
 
-If you want the Linux user service to survive reboots without an active login session:
+`whisper exited with code -9`
+- memory pressure
+- use smaller model:
+  - `WHISPER_MODEL=base`
+  - fallback `tiny`
 
-```bash
-loginctl enable-linger "$USER"
-```
+Telegram command menu does not refresh
+- send `/start`
+- reopen the chat
+- restart the Telegram client
+
+Two bots behave strangely in multi-bot mode
+- confirm they do not reuse the same Telegram token
+- confirm they do not share the same status port
+
+### 14. Security Notes
+
+- Keep `CLAUDE_WORKDIR` narrow
+- expose the bot only to trusted Telegram users unless you have stronger controls
+- use `/approve_always` carefully
+- use `/approve_bypass` even more carefully
+- rotate Telegram bot tokens if they were ever exposed in chat logs
 
 ---
 
 <a name="中文"></a>
 ## 中文
 
-轻量级桥接服务，将 Telegram 消息转发到本地 agent CLI 后端。当前支持 `claude` 和 `codex`，并为每个 Telegram 聊天保持一个独立的后端会话。
+这个项目的作用是：
 
-### 环境变量
+把 Telegram 变成本机 agent CLI 的远程入口。
 
-启动前设置以下变量：
+当前支持：
+- `claude`
+- `codex`
+- 单 bot 模式
+- 多 bot 模式
+- 文本、图片、语音
+- 每个 Telegram chat 独立项目目录
 
-```bash
-export TELEGRAM_BOT_TOKEN=...
-export BOTS_CONFIG_FILE=
-export BRIDGE_PROVIDER=claude
-export CLAUDE_BIN=claude
-export CLAUDE_WORKDIR=~/projects/safe-repo
-export CLAUDE_SETTINGS_FILE=~/.config/telegram-claude-bridge/claude-settings.json
-export CLAUDE_PERMISSION_MODE=default
-export CLAUDE_APPROVAL_PERMISSION_MODE=acceptEdits
-export CLAUDE_ALLOWED_TOOLS=
-export CLAUDE_DISALLOWED_TOOLS=Bash(rm),Bash(git reset)
-export CLAUDE_TIMEOUT_SECONDS=300
-export CLAUDE_STREAMING=true
-```
+下面这份教程按“从零开始”写，一步一步带你做到：
+- 先跑通单 bot
+- 再在 Telegram 里切项目目录
+- 最后同时跑多个 Telegram bots，对接本机 Claude Code 和 Codex
 
-可选变量：
+### 1. 先准备好这些东西
 
-```bash
-export SESSION_STORE_PATH=sessions.json
-export WORKDIR_STORE_PATH=chat_workdirs.json
-export TELEGRAM_POLL_TIMEOUT=30
-export TELEGRAM_EDIT_INTERVAL_SECONDS=1.0
-export TELEGRAM_API_BASE=https://api.telegram.org
-export STATUS_WEB_ENABLED=true
-export STATUS_WEB_HOST=127.0.0.1
-export STATUS_WEB_PORT=8765
-export STATUS_WEB_TOKEN=
-export APPROVAL_STORE_PATH=approval_prefs.json
-export MEDIA_STORE_PATH=.telegram-media
-export WHISPER_BIN=whisper
-export WHISPER_MODEL=base
-export WHISPER_FALLBACK_MODELS=tiny
-export WHISPER_LANGUAGE=
-export WHISPER_THREADS=2
-export CODEX_BIN=codex
-export CODEX_MODEL=
-export CODEX_SANDBOX=danger-full-access
-export CODEX_APPROVAL_POLICY=never
-```
+在这台机器上先确认已经有：
+- Python 3
+- `claude` CLI
+- 如果要用 Codex，还要有 `codex`
+- 如果 Claude hook 需要 Node，就要保证 `node` 在 `PATH`
+- 如果要转写语音，要有 `whisper`
+- 至少一个 Telegram bot token
 
-### 运行
+注意：
+- 这个 bridge 不会帮你自动安装 Claude、Codex 或 Whisper
+- Telegram 只是聊天入口，真正执行仍然发生在本机
+
+### 2. 克隆项目
 
 ```bash
-python3 bot.py
+git clone https://github.com/clawwangcai-dev/myCodeBot.git ~/myCodeBot
+cd ~/myCodeBot
 ```
 
-或安装为后台服务（自动检测平台）：
+### 3. 准备运行配置
+
+先复制配置文件：
 
 ```bash
-python3 install_service.py
+mkdir -p ~/.config/telegram-claude-bridge
+cp ~/myCodeBot/systemd/telegram-claude-bridge.env.example ~/.config/telegram-claude-bridge/env
+cp ~/myCodeBot/systemd/telegram-claude-bridge.claude-settings.json ~/.config/telegram-claude-bridge/claude-settings.json
 ```
 
-### 命令
+编辑 env：
 
-- `/start` - 开始会话
-- `/help` - 查看帮助
-- `/status` - 查看状态
-- `/health` - 健康检查
-- `/version` - 查看版本
-- `/clear` - 清除会话
-- `/project` - 设置当前 chat 的项目目录
-- `/project_status` - 查看当前 chat 的项目目录
-- `/approve` - 批准待处理的权限请求
-- `/approve_always` - 当前 chat 后续自动批准编辑/写入权限请求
-- `/approve_bypass` - 当前 chat 后续自动批准更高权限请求，包括 Bash/git
-- `/approve_manual` - 关闭当前 chat 的自动批准
-- `/deny` - 拒绝待处理的权限请求
+```bash
+$EDITOR ~/.config/telegram-claude-bridge/env
+```
 
-### 注意事项
+先填最小单 bot 配置：
 
-- 每个 Telegram 聊天使用独立锁进行序列化，避免对同一后端会话的并发写入。
-- `/project ~/projects/my-new-app` 会把当前 Telegram chat 绑定到指定工作目录；目录不存在时会自动创建，同时清除旧会话，确保下一条请求从这个目录重新开始。为了安全，目标目录必须位于默认 `CLAUDE_WORKDIR` 范围内。
-- `/project default` 会移除当前 chat 的目录覆盖，恢复使用默认的 `CLAUDE_WORKDIR`。
-- 设置 `BRIDGE_PROVIDER=claude` 使用 Claude CLI 后端；设置 `BRIDGE_PROVIDER=codex` 使用 Codex CLI 后端。
-- Claude 后端使用 `claude -p ... --output-format json` / `stream-json`。
-- Codex 后端使用 `codex exec --json` / `codex exec resume --json`。
-- 在这台 Linux 机器上，Codex 的 `workspace-write` / `--full-auto` 在执行模型生成的 shell 命令时，仍可能触发本地 `bwrap: Unknown option --argv0` 错误；清理 Telegram 对话也不会解决。当前已验证可用的规避方式是设置 `CODEX_SANDBOX=danger-full-access` 和 `CODEX_APPROVAL_POLICY=never`，让 bridge 以 `--dangerously-bypass-approvals-and-sandbox` 调用 Codex。
-- 设置 `CLAUDE_STREAMING=true` 可切换到 `--output-format stream-json --include-partial-messages`，通过编辑正在发送的消息实现流式回复。
-- 保持桥接服务默认使用 `CLAUDE_PERMISSION_MODE=default`；当后端回复需要写入/编辑权限时，桥接服务会记录一次性待批准请求，你可以通过 Telegram 使用 `/approve` 继续或使用 `/deny` 取消。
-- `/approve` 使用 `CLAUDE_APPROVAL_PERMISSION_MODE`（默认为 `acceptEdits`）在同一聊天中重试被阻止的任务，而不是永久放宽所有请求的权限。
-- `/approve_always` 会为当前 chat 保存一个持久化偏好；之后检测到编辑/写入权限请求时会持续自动续跑，直到你用 `/approve_manual` 显式关闭。
-- `/approve_bypass` 会为当前 chat 保存一个更高权限的持久化偏好，适合 `git add`、`git commit` 或其他 Bash 级动作；它会使用 `bypassPermissions`，风险更高，开启时要明确知道自己在放开什么。
-- 现在已支持 Telegram 图片和语音/音频消息：图片会下载到工作目录下的媒体目录，并交给当前选择的后端；语音消息会先通过本机 `whisper` CLI 转写，再把转写文本发给后端。
-- bridge 不会自动安装 Whisper；它会优先复用系统里已有的 `whisper`。如果未找到，请在环境变量里把 `WHISPER_BIN` 指到实际可执行文件路径。
-- 为了降低小内存机器上的 OOM 风险，语音转写默认使用较保守的 `base` 模型，并在失败时自动降级到 `tiny`。
-- Claude 后端可通过 `CLAUDE_SETTINGS_FILE` 加载服务专属设置覆盖文件；附带的示例仅为此 Telegram 服务禁用了 `semgrep` 及说明性/学习性输出风格插件。
-- 在本机上，`systemd` 单元还需要 `node` 在 `PATH` 中，因为 Claude SessionEnd 钩子会调用 Node.js。
-- 默认启用本地状态页面：`http://127.0.0.1:8765/`，JSON 接口：`http://127.0.0.1:8765/api/status`。
-- 如果设置了 `STATUS_WEB_TOKEN`，访问页面需要 `Authorization: Bearer <token>` 或 `?token=<token>`。
-- 在将此机器人暴露给真实用户之前，请将 `CLAUDE_WORKDIR` 限制在狭窄范围，并保守地设置工具权限。
+```bash
+TELEGRAM_BOT_TOKEN=你的_bot_token
+BRIDGE_PROVIDER=claude
+CLAUDE_WORKDIR=~/projects/safe-repo
+CLAUDE_SETTINGS_FILE=~/.config/telegram-claude-bridge/claude-settings.json
+CLAUDE_STREAMING=true
+```
 
-### 多 Bot 模式
+如果你想先跑 Codex：
 
-现在支持模式 1：多个 Telegram bot，同时运行，并且每个 bot 固定绑定一个后端，例如 Claude 或 Codex。
+```bash
+BRIDGE_PROVIDER=codex
+CODEX_SANDBOX=danger-full-access
+CODEX_APPROVAL_POLICY=never
+```
 
-1. 参考 `~/myCodeBot/bots.example.json` 创建配置文件。
-2. 给每个 bot 配置独立的 `TELEGRAM_BOT_TOKEN`。
-3. 通过 `BRIDGE_PROVIDER=claude` 或 `BRIDGE_PROVIDER=codex` 固定每个 bot 的后端。
-4. 如果多个 bot 都启用本地状态页，就必须为每个 bot 配置不同的 `STATUS_WEB_PORT`。
+安全边界要记住：
+- `CLAUDE_WORKDIR` 是默认工作区根目录
+- Telegram 里的 `/project` 只能切换到这个根目录下面的子目录
 
-示例：
+### 4. 启动 bridge
+
+前台直接跑：
+
+```bash
+python3 ~/myCodeBot/bot.py
+```
+
+安装为后台服务：
+
+```bash
+python3 ~/myCodeBot/install_service.py install
+python3 ~/myCodeBot/install_service.py restart
+python3 ~/myCodeBot/install_service.py status
+```
+
+Linux 手动服务方式：
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp ~/myCodeBot/systemd/telegram-claude-bridge.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now telegram-claude-bridge.service
+journalctl --user -u telegram-claude-bridge.service -f
+```
+
+### 5. 在 Telegram 里测试第一个 bot
+
+先发：
+
+```text
+/start
+```
+
+再发：
+
+```text
+/status
+```
+
+然后发一条普通消息：
+
+```text
+who are you?
+```
+
+### 6. Telegram 命令总览
+
+- `/start` 显示帮助
+- `/help` 显示帮助
+- `/status` 查看当前 chat 状态
+- `/health` 查看 bridge 运行状态
+- `/version` 查看 provider 和本机二进制版本
+- `/clear` 清除当前会话
+- `/project <路径>` 把当前 chat 绑定到项目目录
+- `/project_status` 查看当前 chat 的项目目录
+- `/approve` 批准当前待授权请求
+- `/approve_always` 当前 chat 后续自动批准编辑/写入权限
+- `/approve_bypass` 当前 chat 后续自动批准更高权限，包括 Bash/git
+- `/approve_manual` 关闭自动批准
+- `/deny` 拒绝当前待授权请求
+
+### 7. 在 Telegram 里开始一个新项目
+
+如果你的默认根目录是：
+
+```bash
+CLAUDE_WORKDIR=~/projects
+```
+
+那你在 Telegram 里就可以直接发：
+
+```text
+/project ~/projects/my-new-app
+```
+
+然后继续发：
+
+```text
+帮我在这里初始化一个 FastAPI 项目
+```
+
+`/project` 会做的事：
+- 如果目录不存在就创建
+- 把当前 Telegram chat 绑定到这个目录
+- 清掉旧 session，避免旧项目上下文混进来
+
+`/project` 不允许做的事：
+- 切到默认 `CLAUDE_WORKDIR` 之外
+- 切到像 `/etc` 这样的任意系统目录
+
+如果要回到默认目录：
+
+```text
+/project default
+```
+
+### 8. 在 Claude 和 Codex 间切换
+
+单 bot 模式下，切换是全局的。
+
+用 Claude：
+
+```bash
+BRIDGE_PROVIDER=claude
+```
+
+用 Codex：
+
+```bash
+BRIDGE_PROVIDER=codex
+CODEX_SANDBOX=danger-full-access
+CODEX_APPROVAL_POLICY=never
+```
+
+改完后重启服务，然后在 Telegram 发：
+
+```text
+/clear
+```
+
+这台 Linux 机器上和 Codex 相关的已知点：
+- Codex 的 `workspace-write` / `--full-auto` 可能触发 `bwrap: Unknown option --argv0`
+- 当前已验证可用的规避方式是：
+  - `CODEX_SANDBOX=danger-full-access`
+  - `CODEX_APPROVAL_POLICY=never`
+
+### 9. 图片和语音怎么走
+
+当前已经支持：
+- 文本
+- 图片
+- 语音 / 音频
+
+图片流程：
+- 从 Telegram 下载到本地
+- 再把本地图片路径交给当前后端
+
+语音流程：
+- 从 Telegram 下载到本地
+- 用本机 `whisper` 转写
+- 再把转写文本发给后端
+
+如果语音失败，优先检查：
+- `WHISPER_BIN`
+- 内存是否够
+- 模型是不是太大
+
+推荐的保守配置：
+
+```bash
+WHISPER_MODEL=base
+WHISPER_FALLBACK_MODELS=tiny
+WHISPER_THREADS=2
+```
+
+### 10. 单 bot 推荐配置
+
+下面这组配置适合作为起点：
+
+```bash
+TELEGRAM_BOT_TOKEN=你的_bot_token
+BOTS_CONFIG_FILE=
+BRIDGE_PROVIDER=codex
+CLAUDE_BIN=claude
+CLAUDE_WORKDIR=~/projects
+CLAUDE_SETTINGS_FILE=~/.config/telegram-claude-bridge/claude-settings.json
+CLAUDE_PERMISSION_MODE=default
+CLAUDE_APPROVAL_PERMISSION_MODE=acceptEdits
+CLAUDE_TIMEOUT_SECONDS=300
+CLAUDE_STREAMING=true
+TELEGRAM_POLL_TIMEOUT=30
+TELEGRAM_EDIT_INTERVAL_SECONDS=1.0
+SESSION_STORE_PATH=~/myCodeBot/sessions.json
+WORKDIR_STORE_PATH=~/myCodeBot/chat_workdirs.json
+APPROVAL_STORE_PATH=~/myCodeBot/approval_prefs.json
+MEDIA_STORE_PATH=~/myCodeBot/.telegram-media
+WHISPER_BIN=whisper
+WHISPER_MODEL=base
+WHISPER_FALLBACK_MODELS=tiny
+WHISPER_THREADS=2
+CODEX_BIN=codex
+CODEX_SANDBOX=danger-full-access
+CODEX_APPROVAL_POLICY=never
+STATUS_WEB_ENABLED=true
+STATUS_WEB_HOST=127.0.0.1
+STATUS_WEB_PORT=8765
+```
+
+### 11. 从单 bot 升级到多 bots
+
+模式 1 的含义是：
+- 每个 Telegram bot 一个独立 token
+- 每个 Telegram bot 固定绑定一个后端
+- 一个 bot 可以专门给 Claude
+- 另一个 bot 可以专门给 Codex
+
+先复制示例文件：
 
 ```bash
 cp ~/myCodeBot/bots.example.json ~/.config/telegram-claude-bridge/bots.json
 $EDITOR ~/.config/telegram-claude-bridge/bots.json
 ```
 
-然后在 env 文件里设置：
+示例结构：
+
+```json
+{
+  "bots": [
+    {
+      "BRIDGE_NAME": "claude_bot",
+      "TELEGRAM_BOT_TOKEN": "claude_bot的token",
+      "BRIDGE_PROVIDER": "claude",
+      "CLAUDE_WORKDIR": "~/projects",
+      "STATUS_WEB_ENABLED": "true",
+      "STATUS_WEB_PORT": "8766"
+    },
+    {
+      "BRIDGE_NAME": "codex_bot",
+      "TELEGRAM_BOT_TOKEN": "codex_bot的token",
+      "BRIDGE_PROVIDER": "codex",
+      "CLAUDE_WORKDIR": "~/projects",
+      "CODEX_SANDBOX": "danger-full-access",
+      "CODEX_APPROVAL_POLICY": "never",
+      "STATUS_WEB_ENABLED": "true",
+      "STATUS_WEB_PORT": "8765"
+    }
+  ]
+}
+```
+
+然后在 env 里启用：
 
 ```bash
 BOTS_CONFIG_FILE=~/.config/telegram-claude-bridge/bots.json
 ```
 
-设置了 `BOTS_CONFIG_FILE` 后，bridge 会按配置文件中的每个 bot 启动一个独立 polling worker。多 bot 模式下，会话、审批、项目目录和媒体文件默认会自动分离到 `data/<bot-name>/...` 路径；如果你需要，也可以在每个 bot 条目里单独覆盖这些路径。
-
-### 服务安装
-
-推荐使用自动安装器。它会检测 Linux、macOS 或 Windows 并安装对应的后台服务：
+再重启：
 
 ```bash
-python3 install_service.py install
+systemctl --user restart telegram-claude-bridge.service
 ```
 
-它会创建平台专属的环境变量文件、复制桥接服务专属的 Claude 设置覆盖文件、安装服务并启动（除非传入 `--no-start`）。
+多 bot 模式必须满足：
+- 每个 bot 的 `TELEGRAM_BOT_TOKEN` 都不同
+- 每个 bot 的 `BRIDGE_NAME` 都不同
+- 如果都开状态页，每个 bot 的 `STATUS_WEB_PORT` 也必须不同
 
-支持的平台：
+多 bot 模式下，默认会自动拆分这些存储路径：
+- `data/<bot-name>/sessions.json`
+- `data/<bot-name>/chat_workdirs.json`
+- `data/<bot-name>/approval_prefs.json`
+- `data/<bot-name>/.telegram-media`
 
-- Linux: `systemd --user`
-- macOS: `launchd` 用户代理
-- Windows: 任务计划程序 (`schtasks`)
+### 12. 怎么看状态
 
-示例：
+单 bot 本地状态页：
+
+```text
+http://127.0.0.1:8765/
+http://127.0.0.1:8765/api/status
+```
+
+如果设置了：
 
 ```bash
-python3 install_service.py install
-python3 install_service.py install --platform macos --no-start
-python3 install_service.py install --platform windows
-python3 install_service.py status
-python3 install_service.py restart
-python3 install_service.py uninstall
+STATUS_WEB_TOKEN=你的密钥
 ```
 
-运行时路径通过 `~/myCodeBot/service_entry.py` 在各平台统一管理，它会加载环境变量文件并为常见的 Claude/Node 安装路径补丁 `PATH`，然后启动机器人。
+访问方式就是：
+- `Authorization: Bearer 你的密钥`
+- 或 `?token=你的密钥`
 
-#### Linux 手动安装
+### 13. 常见问题
 
-如果你仍想使用手动 Linux 安装方式：
+`claude exited with code 1`
+- 检查 `CLAUDE_BIN`
+- 检查 `CLAUDE_SETTINGS_FILE`
+- 跑一下 `claude --version`
 
-```bash
-mkdir -p ~/.config/systemd/user ~/.config/telegram-claude-bridge
-cp ~/myCodeBot/systemd/telegram-claude-bridge.service ~/.config/systemd/user/
-cp ~/myCodeBot/systemd/telegram-claude-bridge.env.example ~/.config/telegram-claude-bridge/env
-cp ~/myCodeBot/systemd/telegram-claude-bridge.claude-settings.json ~/.config/telegram-claude-bridge/claude-settings.json
-$EDITOR ~/.config/telegram-claude-bridge/env
-systemctl --user daemon-reload
-systemctl --user enable --now telegram-claude-bridge.service
-journalctl --user -u telegram-claude-bridge.service -f
-```
+Codex 执行 shell 一直失败
+- 用：
+  - `CODEX_SANDBOX=danger-full-access`
+  - `CODEX_APPROVAL_POLICY=never`
 
-如果你希望 Linux 用户服务在重启后无需活跃登录会话也能运行：
+`whisper exited with code -9`
+- 多半是内存压力
+- 改小模型：
+  - `WHISPER_MODEL=base`
+  - fallback `tiny`
 
-```bash
-loginctl enable-linger "$USER"
-```
+Telegram 里的命令菜单没刷新
+- 先发 `/start`
+- 退出聊天再进
+- 重启 Telegram 客户端
+
+多 bot 模式看起来不正常
+- 先确认没有复用同一个 Telegram token
+- 再确认状态页端口没有冲突
+
+### 14. 安全提醒
+
+- `CLAUDE_WORKDIR` 尽量设小，不要放太宽
+- 如果 Telegram 用户不是完全可信，不要随便放大权限
+- `/approve_always` 要谨慎
+- `/approve_bypass` 更要谨慎
+- 如果 token 曾出现在聊天记录里，建议去 BotFather 旋转
