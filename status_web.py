@@ -298,6 +298,7 @@ def _render_html(payload: dict[str, Any]) -> str:
           <div>Provider: <code>{html.escape(version['provider'])}</code></div>
           <div>Claude: <code>{html.escape(version['claude_version'])}</code></div>
           <div>Codex: <code>{html.escape(version['codex_version'])}</code></div>
+          <div>Copilot: <code>{html.escape(version['copilot_version'])}</code></div>
           <div>Python: <code>{html.escape(version['python'])}</code></div>
           <div>Platform: <code>{html.escape(version['platform'])}</code></div>
         </div>

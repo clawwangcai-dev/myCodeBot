@@ -17,6 +17,15 @@
       "CODEX_APPROVAL_POLICY": "never",
       "STATUS_WEB_ENABLED": "true",
       "STATUS_WEB_PORT": "8766"
+    },
+    {
+      "BRIDGE_NAME": "copilot_bot",
+      "TELEGRAM_BOT_TOKEN": "123456:replace-me-copilot",
+      "BRIDGE_PROVIDER": "copilot",
+      "CLAUDE_WORKDIR": "~/projects/copilot-workspace",
+      "COPILOT_USE_GH": "true",
+      "STATUS_WEB_ENABLED": "true",
+      "STATUS_WEB_PORT": "8767"
     }
   ]
 }

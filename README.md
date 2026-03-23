@@ -12,12 +12,13 @@ This project turns Telegram into a remote entrypoint for a local agent CLI.
 It currently supports:
 - `claude`
 - `codex`
+- `copilot`
 - single bot mode
 - multi-bot mode
 - text, image, and voice messages
 - per-chat project directories
 
-The tutorial below starts from zero and ends with multiple Telegram bots talking to local Claude Code and Codex on the same machine.
+The tutorial below starts from zero and ends with multiple Telegram bots talking to local Claude Code, Codex, and GitHub Copilot CLI on the same machine.
 
 ### 1. What You Need
 
@@ -25,6 +26,7 @@ Before you start, make sure this machine already has:
 - Python 3
 - `claude` CLI
 - `codex` CLI if you want Codex
+- `copilot` CLI or `gh` if you want GitHub Copilot CLI
 - `node` on `PATH` if your Claude hooks need it
 - `whisper` on `PATH` if you want voice transcription
 - at least one Telegram bot token from BotFather
@@ -72,6 +74,13 @@ If you want Codex instead:
 BRIDGE_PROVIDER=codex
 CODEX_SANDBOX=danger-full-access
 CODEX_APPROVAL_POLICY=never
+```
+
+If you want GitHub Copilot CLI instead:
+
+```bash
+BRIDGE_PROVIDER=copilot
+COPILOT_USE_GH=true
 ```
 
 Important safety rule:
@@ -175,7 +184,7 @@ To return to the default root:
 /project default
 ```
 
-### 8. Switching Between Claude And Codex
+### 8. Switching Between Claude, Codex, And Copilot
 
 In single-bot mode, switching is global.
 
@@ -191,6 +200,13 @@ Use Codex:
 BRIDGE_PROVIDER=codex
 CODEX_SANDBOX=danger-full-access
 CODEX_APPROVAL_POLICY=never
+```
+
+Use Copilot:
+
+```bash
+BRIDGE_PROVIDER=copilot
+COPILOT_USE_GH=true
 ```
 
 Then restart the service and in Telegram send:
@@ -262,6 +278,9 @@ WHISPER_THREADS=2
 CODEX_BIN=codex
 CODEX_SANDBOX=danger-full-access
 CODEX_APPROVAL_POLICY=never
+COPILOT_BIN=copilot
+COPILOT_MODEL=
+COPILOT_USE_GH=false
 STATUS_WEB_ENABLED=true
 STATUS_WEB_HOST=127.0.0.1
 STATUS_WEB_PORT=8765
@@ -272,7 +291,7 @@ STATUS_WEB_PORT=8765
 Mode 1 means:
 - each Telegram bot has its own token
 - each Telegram bot is pinned to one backend
-- one can be Claude, another can be Codex
+- one can be Claude, another Codex, another Copilot
 
 Use the example:
 
@@ -303,6 +322,15 @@ Example structure:
       "CODEX_APPROVAL_POLICY": "never",
       "STATUS_WEB_ENABLED": "true",
       "STATUS_WEB_PORT": "8765"
+    },
+    {
+      "BRIDGE_NAME": "copilot_bot",
+      "TELEGRAM_BOT_TOKEN": "token-for-copilot-bot",
+      "BRIDGE_PROVIDER": "copilot",
+      "CLAUDE_WORKDIR": "~/projects",
+      "COPILOT_USE_GH": "true",
+      "STATUS_WEB_ENABLED": "true",
+      "STATUS_WEB_PORT": "8767"
     }
   ]
 }
@@ -396,6 +424,7 @@ Two bots behave strangely in multi-bot mode
 当前支持：
 - `claude`
 - `codex`
+- `copilot`
 - 单 bot 模式
 - 多 bot 模式
 - 文本、图片、语音
@@ -412,6 +441,7 @@ Two bots behave strangely in multi-bot mode
 - Python 3
 - `claude` CLI
 - 如果要用 Codex，还要有 `codex`
+- 如果要用 GitHub Copilot CLI，要有 `copilot` 或 `gh`
 - 如果 Claude hook 需要 Node，就要保证 `node` 在 `PATH`
 - 如果要转写语音，要有 `whisper`
 - 至少一个 Telegram bot token
@@ -459,6 +489,13 @@ CLAUDE_STREAMING=true
 BRIDGE_PROVIDER=codex
 CODEX_SANDBOX=danger-full-access
 CODEX_APPROVAL_POLICY=never
+```
+
+如果你想先跑 GitHub Copilot CLI：
+
+```bash
+BRIDGE_PROVIDER=copilot
+COPILOT_USE_GH=true
 ```
 
 安全边界要记住：
@@ -562,7 +599,7 @@ CLAUDE_WORKDIR=~/projects
 /project default
 ```
 
-### 8. 在 Claude 和 Codex 间切换
+### 8. 在 Claude、Codex 和 Copilot 间切换
 
 单 bot 模式下，切换是全局的。
 
@@ -578,6 +615,13 @@ BRIDGE_PROVIDER=claude
 BRIDGE_PROVIDER=codex
 CODEX_SANDBOX=danger-full-access
 CODEX_APPROVAL_POLICY=never
+```
+
+用 Copilot：
+
+```bash
+BRIDGE_PROVIDER=copilot
+COPILOT_USE_GH=true
 ```
 
 改完后重启服务，然后在 Telegram 发：
@@ -649,6 +693,9 @@ WHISPER_THREADS=2
 CODEX_BIN=codex
 CODEX_SANDBOX=danger-full-access
 CODEX_APPROVAL_POLICY=never
+COPILOT_BIN=copilot
+COPILOT_MODEL=
+COPILOT_USE_GH=false
 STATUS_WEB_ENABLED=true
 STATUS_WEB_HOST=127.0.0.1
 STATUS_WEB_PORT=8765
@@ -661,6 +708,7 @@ STATUS_WEB_PORT=8765
 - 每个 Telegram bot 固定绑定一个后端
 - 一个 bot 可以专门给 Claude
 - 另一个 bot 可以专门给 Codex
+- 也可以再加一个给 Copilot
 
 先复制示例文件：
 
@@ -691,6 +739,15 @@ $EDITOR ~/.config/telegram-claude-bridge/bots.json
       "CODEX_APPROVAL_POLICY": "never",
       "STATUS_WEB_ENABLED": "true",
       "STATUS_WEB_PORT": "8765"
+    },
+    {
+      "BRIDGE_NAME": "copilot_bot",
+      "TELEGRAM_BOT_TOKEN": "copilot_bot的token",
+      "BRIDGE_PROVIDER": "copilot",
+      "CLAUDE_WORKDIR": "~/projects",
+      "COPILOT_USE_GH": "true",
+      "STATUS_WEB_ENABLED": "true",
+      "STATUS_WEB_PORT": "8767"
     }
   ]
 }

@@ -519,12 +519,14 @@ class TelegramBot:
             f"git_commit: {self._version_info['git_commit']}\n"
             f"claude_version: {self._version_info['claude_version']}\n"
             f"codex_version: {self._version_info['codex_version']}\n"
+            f"copilot_version: {self._version_info['copilot_version']}\n"
             f"whisper_bin: {self._version_info['whisper_bin']}\n"
             f"whisper_resolved: {self._version_info['whisper_resolved']}\n"
             f"python: {self._version_info['python']}\n"
             f"platform: {self._version_info['platform']}\n"
             f"claude_bin: {self._version_info['claude_bin']}\n"
-            f"codex_bin: {self._version_info['codex_bin']}"
+            f"codex_bin: {self._version_info['codex_bin']}\n"
+            f"copilot_bin: {self._version_info['copilot_bin']}"
         )
 
     @staticmethod

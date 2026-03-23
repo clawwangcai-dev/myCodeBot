@@ -130,6 +130,9 @@ def ensure_env_file(target: str, config_dir: Path) -> Path:
         CODEX_MODEL=
         CODEX_SANDBOX=workspace-write
         CODEX_APPROVAL_POLICY=on-request
+        COPILOT_BIN=copilot
+        COPILOT_MODEL=
+        COPILOT_USE_GH=false
         BRIDGE_PATH_PREFIX={default_path_prefix(target)}
         """
     )

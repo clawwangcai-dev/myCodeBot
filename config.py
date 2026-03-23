@@ -44,6 +44,9 @@ class Settings:
     codex_model: str | None
     codex_sandbox: str
     codex_approval_policy: str
+    copilot_bin: str
+    copilot_model: str | None
+    copilot_use_gh: bool
     status_web_enabled: bool
     status_web_host: str
     status_web_port: int
@@ -135,6 +138,9 @@ def _build_settings(
         codex_model=values.get("CODEX_MODEL", "").strip() or None,
         codex_sandbox=values.get("CODEX_SANDBOX", "workspace-write").strip() or "workspace-write",
         codex_approval_policy=values.get("CODEX_APPROVAL_POLICY", "on-request").strip() or "on-request",
+        copilot_bin=values.get("COPILOT_BIN", "copilot").strip() or "copilot",
+        copilot_model=values.get("COPILOT_MODEL", "").strip() or None,
+        copilot_use_gh=_parse_bool(values.get("COPILOT_USE_GH"), default=False),
         status_web_enabled=_parse_bool(values.get("STATUS_WEB_ENABLED"), default=True),
         status_web_host=values.get("STATUS_WEB_HOST", "127.0.0.1").strip() or "127.0.0.1",
         status_web_port=max(1, int(status_web_port_raw)),

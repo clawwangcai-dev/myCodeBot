@@ -32,6 +32,11 @@ def get_version_snapshot(settings: Settings) -> dict[str, str]:
     git_commit = _run_capture(["git", "rev-parse", "--short", "HEAD"], cwd=repo_dir) or "unknown"
     claude_version = _run_capture([settings.claude_bin, "--version"]) or "unknown"
     codex_version = _run_capture([settings.codex_bin, "--version"]) or "unknown"
+    copilot_version = (
+        _run_capture(["gh", "copilot", "--", "--version"])
+        if settings.copilot_use_gh
+        else _run_capture([settings.copilot_bin, "--version"])
+    ) or "unknown"
     return {
         "app": "telegram-claude-bridge",
         "bridge_name": settings.name,
@@ -43,6 +48,8 @@ def get_version_snapshot(settings: Settings) -> dict[str, str]:
         "claude_version": claude_version,
         "codex_bin": settings.codex_bin,
         "codex_version": codex_version,
+        "copilot_bin": "gh copilot" if settings.copilot_use_gh else settings.copilot_bin,
+        "copilot_version": copilot_version,
         "whisper_bin": settings.whisper_bin,
         "whisper_resolved": shutil.which(settings.whisper_bin) or "missing",
         "executable": sys.executable,
