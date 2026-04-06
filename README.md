@@ -7,7 +7,7 @@
 <a name="english"></a>
 ## English
 
-This project turns Telegram into a remote entrypoint for a local agent CLI.
+This project turns Telegram, WhatsApp, and a local web UI into remote entrypoints for a local agent CLI.
 
 It currently supports:
 - `claude`
@@ -20,7 +20,7 @@ It currently supports:
 - experimental WhatsApp webhook ingress
 - local web chat with channel-aware conversation history
 
-The tutorial below starts from zero and ends with multiple Telegram bots talking to local Claude Code, Codex, and GitHub Copilot CLI on the same machine.
+The tutorial below starts from zero and ends with multiple Telegram bots, optional WhatsApp ingress, and a local web chat UI talking to Claude Code, Codex, and GitHub Copilot CLI on the same machine.
 
 ### 1. What You Need
 
@@ -36,7 +36,7 @@ Before you start, make sure this machine already has:
 
 Important:
 - This bridge does not install Claude, Codex, or Whisper for you.
-- Telegram is only the chat frontend. Real execution still happens locally on this machine.
+- Telegram, WhatsApp, and the local web UI are only frontends. Real execution still happens locally on this machine.
 
 ### 2. Clone The Project
 
@@ -143,7 +143,7 @@ Then send a normal prompt:
 who are you?
 ```
 
-### 6. Core Telegram Commands
+### 6. Core Bridge Commands
 
 - `/start` show help
 - `/help` show help
@@ -157,6 +157,7 @@ who are you?
 - `/approve_always` auto-approve future edit/write requests in this chat
 - `/approve_bypass` auto-approve broader Bash/git-level requests in this chat
 - `/approve_manual` turn auto-approve off
+- `/resume_local` print the local `claude` / `codex` resume command for this conversation
 - `/deny` deny the pending request
 
 ### 7. Start A New Project From Telegram
@@ -245,11 +246,11 @@ Supported now:
 - voice/audio messages
 
 Image flow:
-- Telegram file downloads locally
+- Telegram and WhatsApp media downloads locally
 - the local image path is passed to the selected backend
 
 Voice flow:
-- Telegram file downloads locally
+- Telegram and WhatsApp audio downloads locally
 - local `whisper` transcribes it
 - the transcript is forwarded to the backend
 
@@ -381,6 +382,7 @@ Single-bot local status page:
 ```text
 http://127.0.0.1:8765/
 http://127.0.0.1:8765/api/status
+http://127.0.0.1:8765/chat
 ```
 
 If you set:
@@ -399,8 +401,16 @@ The local chat page now uses channel-scoped conversation ids:
 
 These show up in:
 - `/resume_local`
+- `python3 resume_telegram_session.py --list`
 - `python3 resume_telegram_session.py --chat-id telegram:123456`
+- `python3 resume_telegram_session.py --chat-id whatsapp:49123456789`
 - the `/chat` page input box
+
+The local web chat page can:
+- list known conversations from Telegram, WhatsApp, and the local web UI
+- continue the same backend session from the browser
+- optionally mirror a `[Desktop] ...` message back to the remote chat
+- show per-conversation local resume commands
 
 ### 13. WhatsApp Setup
 
@@ -495,7 +505,7 @@ WhatsApp replies fail
 
 这个项目的作用是：
 
-把 Telegram 变成本机 agent CLI 的远程入口。
+把 Telegram、WhatsApp 和本地网页聊天页都变成本机 agent CLI 的远程入口。
 
 当前支持：
 - `claude`
@@ -511,7 +521,7 @@ WhatsApp replies fail
 下面这份教程按“从零开始”写，一步一步带你做到：
 - 先跑通单 bot
 - 再在 Telegram 里切项目目录
-- 最后同时跑多个 Telegram bots，对接本机 Claude Code 和 Codex
+- 最后同时跑多个 Telegram bots，并可选接入 WhatsApp 和本地网页聊天页，对接本机 Claude Code、Codex 和 Copilot
 
 ### 1. 先准备好这些东西
 
@@ -527,7 +537,7 @@ WhatsApp replies fail
 
 注意：
 - 这个 bridge 不会帮你自动安装 Claude、Codex 或 Whisper
-- Telegram 只是聊天入口，真正执行仍然发生在本机
+- Telegram、WhatsApp 和本地网页都只是聊天入口，真正执行仍然发生在本机
 
 ### 2. 克隆项目
 
@@ -634,7 +644,7 @@ journalctl --user -u telegram-claude-bridge.service -f
 who are you?
 ```
 
-### 6. Telegram 命令总览
+### 6. Bridge 命令总览
 
 - `/start` 显示帮助
 - `/help` 显示帮助
@@ -648,6 +658,7 @@ who are you?
 - `/approve_always` 当前 chat 后续自动批准编辑/写入权限
 - `/approve_bypass` 当前 chat 后续自动批准更高权限，包括 Bash/git
 - `/approve_manual` 关闭自动批准
+- `/resume_local` 输出当前会话对应的本地 `claude` / `codex` 续聊命令
 - `/deny` 拒绝当前待授权请求
 
 ### 7. 在 Telegram 里开始一个新项目
@@ -736,11 +747,11 @@ COPILOT_USE_GH=true
 - 语音 / 音频
 
 图片流程：
-- 从 Telegram 下载到本地
+- 从 Telegram 或 WhatsApp 下载到本地
 - 再把本地图片路径交给当前后端
 
 语音流程：
-- 从 Telegram 下载到本地
+- 从 Telegram 或 WhatsApp 下载到本地
 - 用本机 `whisper` 转写
 - 再把转写文本发给后端
 
@@ -875,6 +886,7 @@ systemctl --user restart telegram-claude-bridge.service
 ```text
 http://127.0.0.1:8765/
 http://127.0.0.1:8765/api/status
+http://127.0.0.1:8765/chat
 ```
 
 如果设置了：
@@ -893,8 +905,16 @@ STATUS_WEB_TOKEN=你的密钥
 
 这些地方都会用到：
 - `/resume_local`
+- `python3 resume_telegram_session.py --list`
 - `python3 resume_telegram_session.py --chat-id telegram:123456`
+- `python3 resume_telegram_session.py --chat-id whatsapp:49123456789`
 - `/chat` 页面的输入框
+
+本地网页聊天页可以：
+- 列出 Telegram、WhatsApp 和网页侧已知会话
+- 在浏览器里继续同一个后端 session
+- 可选把 `[Desktop] ...` 镜像回远端聊天
+- 展示当前会话可用的本地续聊命令
 
 ### 13. 配置 WhatsApp
 
