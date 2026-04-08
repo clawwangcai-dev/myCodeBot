@@ -245,10 +245,7 @@ class TelegramBot:
             source="telegram",
             text=caption or "[Telegram image]",
         )
-        self._send_message(
-            chat_id,
-            self._core.render_ui_text(conversation, "image_received", provider=self._provider_label()),
-        )
+        self.send_chat_action(conversation, "typing")
         try:
             media = self._download_telegram_media(
                 file_id=file_id,
@@ -280,10 +277,7 @@ class TelegramBot:
             source="telegram",
             text=caption or "[Telegram image document]",
         )
-        self._send_message(
-            chat_id,
-            self._core.render_ui_text(conversation, "image_doc_received", provider=self._provider_label()),
-        )
+        self.send_chat_action(conversation, "typing")
         try:
             media = self._download_telegram_media(
                 file_id=file_id,
@@ -315,7 +309,7 @@ class TelegramBot:
             source="telegram",
             text=caption or "[Telegram voice]",
         )
-        self._send_message(chat_id, self._core.render_ui_text(conversation, "voice_received"))
+        self.send_chat_action(conversation, "typing")
         try:
             media = self._download_telegram_media(
                 file_id=file_id,
@@ -331,10 +325,6 @@ class TelegramBot:
                 text=f"[Voice transcript]\n{transcript.text.strip() or '(empty transcription)'}",
             )
             self._core.remember_user_language(conversation, transcript.text)
-            self._send_message(
-                chat_id,
-                self._core.render_ui_text(conversation, "voice_transcribed", provider=self._provider_label()),
-            )
             prompt = self._media_handler.build_voice_prompt(transcript)
             self._core.run_prompt(conversation, prompt=prompt, start_text=None)
         except MediaHandlerError as exc:
@@ -881,6 +871,18 @@ class TelegramBot:
         result = response.get("result", {})
         returned_id = result.get("message_id", message_id)
         return SentMessage(message_id=str(returned_id) if returned_id is not None else None, raw=result)
+
+    def send_chat_action(self, conversation: ConversationRef, action: str = "typing") -> None:
+        try:
+            self._call(
+                "sendChatAction",
+                {
+                    "chat_id": conversation.chat_id,
+                    "action": action,
+                },
+            )
+        except TelegramAPIError:
+            LOGGER.debug("Failed to send chat action %s for %s", action, conversation.key, exc_info=True)
 
     def _call(self, method: str, payload: dict[str, Any]) -> dict[str, Any]:
         query = urlencode(payload).encode("utf-8")
