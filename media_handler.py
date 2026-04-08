@@ -86,23 +86,85 @@ class MediaHandler:
         )
 
     def transcribe_voice(self, media: DownloadedMedia) -> VoiceTranscript:
-        whisper_path = shutil.which(self._settings.whisper_bin)
-        if whisper_path is None:
-            raise MediaHandlerError(
-                "未找到 whisper 可执行文件。"
-                f"\n当前配置 WHISPER_BIN={self._settings.whisper_bin}"
-                "\n如果系统已安装 whisper，请把它加入 PATH 或在 env 里设置 WHISPER_BIN 为实际路径。"
-            )
-
-        models = [self._settings.whisper_model, *self._settings.whisper_fallback_models]
-        seen: set[str] = set()
+        models = self._transcription_models()
         failures: list[str] = []
 
-        for model_name in models:
+        transcript = self._transcribe_with_faster_whisper(media, models, failures)
+        if transcript is not None:
+            return transcript
+
+        transcript = self._transcribe_with_whisper_cli(media, models, failures)
+        if transcript is not None:
+            return transcript
+
+        raise MediaHandlerError(
+            "语音转写失败。已按顺序尝试 faster-whisper 和 whisper CLI。"
+            f"\n当前配置 WHISPER_BIN={self._settings.whisper_bin}"
+            f"\n已尝试模型: {', '.join(models) or '<none>'}\n"
+            + "\n".join(failures)
+        )
+
+    def _transcription_models(self) -> list[str]:
+        seen: set[str] = set()
+        models: list[str] = []
+        for model_name in [self._settings.whisper_model, *self._settings.whisper_fallback_models]:
             model = model_name.strip()
             if not model or model in seen:
                 continue
             seen.add(model)
+            models.append(model)
+        return models
+
+    def _transcribe_with_faster_whisper(
+        self,
+        media: DownloadedMedia,
+        models: list[str],
+        failures: list[str],
+    ) -> VoiceTranscript | None:
+        try:
+            from faster_whisper import WhisperModel
+        except Exception as exc:
+            failures.append(
+                f"faster-whisper unavailable: {exc.__class__.__name__}: {exc}"
+            )
+            return None
+
+        for model_name in models:
+            try:
+                model = WhisperModel(
+                    model_name,
+                    device="auto",
+                    cpu_threads=self._settings.whisper_threads,
+                )
+                segments, _info = model.transcribe(
+                    str(media.path),
+                    task="transcribe",
+                    language=self._settings.whisper_language,
+                )
+                text = "".join(segment.text for segment in segments).strip()
+                return VoiceTranscript(media=media, text=text)
+            except Exception as exc:
+                failures.append(
+                    f"faster-whisper {model_name}: {exc.__class__.__name__}: {exc}"
+                )
+
+        return None
+
+    def _transcribe_with_whisper_cli(
+        self,
+        media: DownloadedMedia,
+        models: list[str],
+        failures: list[str],
+    ) -> VoiceTranscript | None:
+        whisper_path = shutil.which(self._settings.whisper_bin)
+        if whisper_path is None:
+            failures.append(
+                "whisper CLI unavailable: "
+                f"WHISPER_BIN={self._settings.whisper_bin}, resolved=missing"
+            )
+            return None
+
+        for model in models:
             output_dir = media.path.parent / f"{media.path.stem}-whisper-{model}"
             output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -130,6 +192,8 @@ class MediaHandler:
             completed = subprocess.run(
                 command,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 capture_output=True,
                 check=False,
                 timeout=self._settings.claude_timeout_seconds,
@@ -148,7 +212,7 @@ class MediaHandler:
                 return VoiceTranscript(media=media, text=text.strip())
 
             detail = (
-                f"{model}: exit {completed.returncode}, "
+                f"whisper-cli {model}: exit {completed.returncode}, "
                 f"stderr={completed.stderr.strip() or '<empty>'}, "
                 f"stdout={completed.stdout.strip() or '<empty>'}"
             )
@@ -156,8 +220,4 @@ class MediaHandler:
             if completed.returncode == -9:
                 continue
 
-        raise MediaHandlerError(
-            "whisper 转写失败。已尝试模型: "
-            f"{', '.join(seen) or '<none>'}\n"
-            + "\n".join(failures)
-        )
+        return None

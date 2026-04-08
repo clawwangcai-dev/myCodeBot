@@ -33,6 +33,7 @@ from workdir_store import WorkdirStore
 LOGGER = logging.getLogger("telegram-claude-bridge.core")
 
 DEFAULT_UI_LANGUAGE = "en"
+CHAT_ACTION_INTERVAL_SECONDS = 4.0
 
 UI_TEXT: dict[str, dict[str, str]] = {
     "zh": {
@@ -49,8 +50,8 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "no_auto_approval": "当前没有开启自动批准。",
         "approval_denied": "已拒绝本次待授权操作。",
         "no_pending_approval": "当前没有待授权操作。",
-        "request_received": "请求已收到，正在调用本机 {provider}…",
-        "request_received_streaming": "请求已收到，正在流式调用本机 {provider}…",
+        "request_received": "正在调用 {provider}…",
+        "request_received_streaming": "正在调用 {provider}…",
         "auto_approval_loop": (
             "检测到相同权限请求被重复触发，已停止自动重试，避免死循环。\n"
             "当前自动批准模式: {mode}\n"
@@ -135,19 +136,19 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "image_missing_file_id": "图片消息缺少 file_id。",
         "image_doc_missing_file_id": "图片文件缺少 file_id。",
         "voice_missing_file_id": "语音消息缺少 file_id。",
-        "image_received": "已收到图片，正在下载并转交给 {provider}…",
-        "image_doc_received": "已收到图片文件，正在下载并转交给 {provider}…",
+        "image_received": "正在处理图片…",
+        "image_doc_received": "正在处理图片…",
         "image_processing_failed": "图片处理失败:\n{error}",
-        "voice_received": "已收到语音，正在下载并转写…",
-        "voice_transcribed": "语音已转写，正在转交给 {provider}…",
+        "voice_received": "正在转写语音…",
+        "voice_transcribed": "正在转交给 {provider}…",
         "voice_processing_failed": "语音处理失败:\n{error}",
         "whatsapp_unsupported_message_type": "暂不支持这种 WhatsApp 消息类型。当前支持文本、图片和音频。",
         "whatsapp_image_missing_media_id": "WhatsApp 图片消息缺少 media id。",
         "whatsapp_audio_missing_media_id": "WhatsApp 音频消息缺少 media id。",
-        "whatsapp_image_received": "已收到 WhatsApp 图片，正在下载并转交给 {provider}…",
+        "whatsapp_image_received": "正在处理 WhatsApp 图片…",
         "whatsapp_image_processing_failed": "WhatsApp 图片处理失败:\n{error}",
-        "whatsapp_audio_received": "已收到 WhatsApp 音频，正在下载并转写…",
-        "whatsapp_voice_transcribed": "语音已转写，正在转交给 {provider}…",
+        "whatsapp_audio_received": "正在转写 WhatsApp 音频…",
+        "whatsapp_voice_transcribed": "正在转交给 {provider}…",
         "whatsapp_audio_processing_failed": "WhatsApp 音频处理失败:\n{error}",
         "desktop_prefix": "[Desktop] {prompt}",
     },
@@ -165,8 +166,8 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "no_auto_approval": "Für diesen Chat ist keine Auto-Freigabe aktiv.",
         "approval_denied": "Die ausstehende Freigabe wurde abgelehnt.",
         "no_pending_approval": "Es gibt keine ausstehende Freigabe.",
-        "request_received": "Anfrage empfangen. Lokales {provider} wird gestartet…",
-        "request_received_streaming": "Anfrage empfangen. Lokales {provider} wird im Streaming-Modus gestartet…",
+        "request_received": "{provider} läuft…",
+        "request_received_streaming": "{provider} läuft…",
         "auto_approval_loop": (
             "Dieselbe Berechtigungsanfrage wurde wiederholt ausgelöst. Auto-Wiederholung wurde gestoppt, um eine Schleife zu vermeiden.\n"
             "Aktueller Auto-Freigabemodus: {mode}\n"
@@ -251,19 +252,19 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "image_missing_file_id": "Der Bildnachricht fehlt eine file_id.",
         "image_doc_missing_file_id": "Der Bilddatei fehlt eine file_id.",
         "voice_missing_file_id": "Der Sprachnachricht fehlt eine file_id.",
-        "image_received": "Bild empfangen. Es wird heruntergeladen und an {provider} weitergereicht…",
-        "image_doc_received": "Bilddatei empfangen. Sie wird heruntergeladen und an {provider} weitergereicht…",
+        "image_received": "Bild wird verarbeitet…",
+        "image_doc_received": "Bild wird verarbeitet…",
         "image_processing_failed": "Bildverarbeitung fehlgeschlagen:\n{error}",
-        "voice_received": "Sprachnachricht empfangen. Sie wird heruntergeladen und transkribiert…",
-        "voice_transcribed": "Die Sprachnachricht wurde transkribiert und wird an {provider} weitergereicht…",
+        "voice_received": "Sprachnachricht wird transkribiert…",
+        "voice_transcribed": "Wird an {provider} weitergereicht…",
         "voice_processing_failed": "Sprachverarbeitung fehlgeschlagen:\n{error}",
         "whatsapp_unsupported_message_type": "Dieser WhatsApp-Nachrichtentyp wird noch nicht unterstützt. Aktuell werden Text, Bilder und Audio unterstützt.",
         "whatsapp_image_missing_media_id": "Der WhatsApp-Bildnachricht fehlt eine media id.",
         "whatsapp_audio_missing_media_id": "Der WhatsApp-Audionachricht fehlt eine media id.",
-        "whatsapp_image_received": "WhatsApp-Bild empfangen. Es wird heruntergeladen und an {provider} weitergereicht…",
+        "whatsapp_image_received": "WhatsApp-Bild wird verarbeitet…",
         "whatsapp_image_processing_failed": "WhatsApp-Bildverarbeitung fehlgeschlagen:\n{error}",
-        "whatsapp_audio_received": "WhatsApp-Audio empfangen. Es wird heruntergeladen und transkribiert…",
-        "whatsapp_voice_transcribed": "Die Audionachricht wurde transkribiert und wird an {provider} weitergereicht…",
+        "whatsapp_audio_received": "WhatsApp-Audio wird transkribiert…",
+        "whatsapp_voice_transcribed": "Wird an {provider} weitergereicht…",
         "whatsapp_audio_processing_failed": "WhatsApp-Audioverarbeitung fehlgeschlagen:\n{error}",
         "desktop_prefix": "[Desktop] {prompt}",
     },
@@ -281,8 +282,8 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "no_auto_approval": "Auto-approval is not enabled for this chat.",
         "approval_denied": "Denied the pending permission request.",
         "no_pending_approval": "There is no pending permission request.",
-        "request_received": "Request received. Invoking local {provider}…",
-        "request_received_streaming": "Request received. Invoking local {provider} in streaming mode…",
+        "request_received": "Running {provider}…",
+        "request_received_streaming": "Running {provider}…",
         "auto_approval_loop": (
             "The same permission request was triggered repeatedly. Auto-retry has been stopped to avoid a loop.\n"
             "Current auto-approval mode: {mode}\n"
@@ -367,19 +368,19 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "image_missing_file_id": "The image message is missing a file_id.",
         "image_doc_missing_file_id": "The image document is missing a file_id.",
         "voice_missing_file_id": "The voice message is missing a file_id.",
-        "image_received": "Image received. Downloading it and handing it to {provider}…",
-        "image_doc_received": "Image document received. Downloading it and handing it to {provider}…",
+        "image_received": "Processing image…",
+        "image_doc_received": "Processing image…",
         "image_processing_failed": "Image processing failed:\n{error}",
-        "voice_received": "Voice message received. Downloading and transcribing it…",
-        "voice_transcribed": "The voice message has been transcribed and is being forwarded to {provider}…",
+        "voice_received": "Transcribing voice…",
+        "voice_transcribed": "Sending to {provider}…",
         "voice_processing_failed": "Voice processing failed:\n{error}",
         "whatsapp_unsupported_message_type": "This WhatsApp message type is not supported yet. Supported types are text, images, and audio.",
         "whatsapp_image_missing_media_id": "The WhatsApp image message is missing a media id.",
         "whatsapp_audio_missing_media_id": "The WhatsApp audio message is missing a media id.",
-        "whatsapp_image_received": "WhatsApp image received. Downloading it and handing it to {provider}…",
+        "whatsapp_image_received": "Processing WhatsApp image…",
         "whatsapp_image_processing_failed": "WhatsApp image processing failed:\n{error}",
-        "whatsapp_audio_received": "WhatsApp audio received. Downloading and transcribing it…",
-        "whatsapp_voice_transcribed": "The audio has been transcribed and is being forwarded to {provider}…",
+        "whatsapp_audio_received": "Transcribing WhatsApp audio…",
+        "whatsapp_voice_transcribed": "Sending to {provider}…",
         "whatsapp_audio_processing_failed": "WhatsApp audio processing failed:\n{error}",
         "desktop_prefix": "[Desktop] {prompt}",
     },
@@ -480,6 +481,7 @@ PERMISSION_PATTERNS = (
     re.compile(r"(写入|编辑|修改).{0,12}(README|文件|权限|授权)"),
     re.compile(r"(permission|approval|authorize)", re.IGNORECASE),
     re.compile(r"(write|edit).{0,20}(access|permission)", re.IGNORECASE),
+    re.compile(r"(berechtigung|berechtigungen|freigabe|freigeben|genehmig|erlaubnis)", re.IGNORECASE),
 )
 
 APPROVAL_CONTINUE_PROMPT = (
@@ -546,6 +548,31 @@ class BridgeCore:
         with self._lock_for(conversation):
             self._dispatch_text(conversation, text)
 
+    def _supports_chat_actions(self) -> bool:
+        return callable(getattr(self._transport, "send_chat_action", None))
+
+    def _send_chat_action(self, conversation: ConversationRef, action: str = "typing") -> None:
+        sender = getattr(self._transport, "send_chat_action", None)
+        if callable(sender):
+            sender(conversation, action)
+
+    def _start_chat_action_loop(self, conversation: ConversationRef, action: str = "typing"):
+        if not self._supports_chat_actions():
+            return lambda: None
+
+        stop_event = threading.Event()
+
+        def worker() -> None:
+            while not stop_event.is_set():
+                try:
+                    self._send_chat_action(conversation, action)
+                except Exception:
+                    LOGGER.debug("Failed to send chat action %s for %s", action, conversation.key, exc_info=True)
+                stop_event.wait(CHAT_ACTION_INTERVAL_SECONDS)
+
+        threading.Thread(target=worker, daemon=True).start()
+        return stop_event.set
+
     def remember_user_language(self, conversation: ConversationRef, text: str) -> str:
         previous = self._conversation_languages.get(conversation.key)
         language = self._detect_language(text)
@@ -580,6 +607,7 @@ class BridgeCore:
 
         if start_text:
             self._send_message(conversation, start_text)
+        stop_chat_action = self._start_chat_action_loop(conversation)
         self._runtime_state.request_started()
 
         try:
@@ -613,6 +641,8 @@ class BridgeCore:
                 )
             ):
                 self._send_message(conversation, part)
+        finally:
+            stop_chat_action()
 
     def build_status_text(self, conversation: ConversationRef) -> str:
         language = self._conversation_language(conversation)
@@ -686,6 +716,8 @@ class BridgeCore:
             f"claude_version: {self._version_info['claude_version']}\n"
             f"codex_version: {self._version_info['codex_version']}\n"
             f"copilot_version: {self._version_info['copilot_version']}\n"
+            f"transcription_backend: {self._version_info['transcription_backend']}\n"
+            f"faster_whisper_version: {self._version_info['faster_whisper_version']}\n"
             f"whisper_bin: {self._version_info['whisper_bin']}\n"
             f"whisper_resolved: {self._version_info['whisper_resolved']}\n"
             f"python: {self._version_info['python']}\n"
@@ -817,7 +849,7 @@ class BridgeCore:
         self.run_prompt(
             conversation,
             prompt=text,
-            start_text=self.render_ui_text(
+            start_text=None if self._supports_chat_actions() else self.render_ui_text(
                 conversation,
                 "request_received",
                 provider=self._provider_label(),
@@ -832,21 +864,28 @@ class BridgeCore:
         start_text: str | None,
         image_paths: list[str] | None = None,
     ) -> None:
-        sent = self._send_message(
-            conversation,
-            start_text
-            or self.render_ui_text(
+        sent = None
+        if start_text is not None:
+            sent = self._send_message(
                 conversation,
-                "request_received_streaming",
-                provider=self._provider_label(),
-            ),
-        )
+                start_text,
+            )
+        elif not self._supports_chat_actions():
+            sent = self._send_message(
+                conversation,
+                self.render_ui_text(
+                    conversation,
+                    "request_received_streaming",
+                    provider=self._provider_label(),
+                ),
+            )
         message_id = sent.message_id if sent else None
         record = self._store.get(conversation.key)
         latest_text = ""
         final_session_id = record.session_id if record else None
         last_preview = None
         last_edit_at = 0.0
+        stop_chat_action = self._start_chat_action_loop(conversation)
         self._runtime_state.request_started()
 
         try:
@@ -865,6 +904,13 @@ class BridgeCore:
 
                 preview = self._make_live_preview(latest_text)
                 now = time.monotonic()
+                if preview and message_id is None:
+                    stop_chat_action()
+                    sent = self._send_message(conversation, preview)
+                    message_id = sent.message_id if sent else None
+                    last_preview = preview
+                    last_edit_at = now
+                    continue
                 if (
                     self._transport.can_edit_messages
                     and preview
@@ -872,6 +918,7 @@ class BridgeCore:
                     and message_id is not None
                     and now - last_edit_at >= self._settings.telegram_edit_interval_seconds
                 ):
+                    stop_chat_action()
                     self._edit_message(conversation, message_id, preview)
                     last_preview = preview
                     last_edit_at = now
@@ -882,6 +929,7 @@ class BridgeCore:
             parts = format_text_reply(latest_text)
             for part in parts:
                 self.log_message(conversation, role="assistant", source="bridge", text=part)
+            stop_chat_action()
             if message_id is None or not self._transport.can_edit_messages:
                 for part in parts:
                     self._send_message(conversation, part, role="assistant")
@@ -906,6 +954,7 @@ class BridgeCore:
                 provider=self._provider_label(),
                 error=exc,
             )
+            stop_chat_action()
             if message_id is not None and self._transport.can_edit_messages:
                 parts = format_text_reply(error_text)
                 if parts:
@@ -915,6 +964,8 @@ class BridgeCore:
             else:
                 for part in format_text_reply(error_text):
                     self._send_message(conversation, part)
+        finally:
+            stop_chat_action()
 
     def _capture_permission_request(
         self,
