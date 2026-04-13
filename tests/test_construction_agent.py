@@ -199,6 +199,12 @@ class ConstructionAgentTest(unittest.TestCase):
             self.assertTrue(payload["ok"])
             self.assertEqual(payload["data"]["counts"]["employees"], 20)
 
+            with urlopen(f"{base_url}/construction", timeout=5) as response:
+                page = response.read().decode("utf-8")
+            self.assertIn("Print Day Report", page)
+            self.assertIn("Prepare Override", page)
+            self.assertIn("planViewCaption", page)
+
             request = Request(
                 f"{base_url}/api/construction/plan/generate",
                 data=json.dumps({"actor": "web-test"}).encode("utf-8"),

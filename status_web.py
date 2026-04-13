@@ -603,12 +603,17 @@ def _render_construction_html(settings: Settings) -> str:
     :root {{
       color-scheme: light;
       --bg: #efe7da;
-      --panel: #fffdf8;
+      --panel: rgba(255, 253, 248, 0.94);
       --ink: #1c2228;
       --muted: #616f7b;
       --line: #d4cab6;
       --accent: #b45309;
       --accent-2: #0f766e;
+      --danger: #b91c1c;
+      --warn: #b45309;
+      --ok: #0f766e;
+      --cream: #fff8ef;
+      --paper: #fffdf8;
     }}
     * {{ box-sizing: border-box; }}
     body {{
@@ -627,7 +632,7 @@ def _render_construction_html(settings: Settings) -> str:
       gap: 18px;
     }}
     .hero, .panel {{
-      background: rgba(255, 253, 248, 0.92);
+      background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 18px;
       padding: 18px;
@@ -644,6 +649,29 @@ def _render_construction_html(settings: Settings) -> str:
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 18px;
+    }}
+    .metric-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }}
+    .metric {{
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      background: var(--cream);
+    }}
+    .metric .label {{
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }}
+    .metric .value {{
+      font-size: 24px;
+      font-weight: 700;
     }}
     table {{
       width: 100%;
@@ -697,6 +725,23 @@ def _render_construction_html(settings: Settings) -> str:
       gap: 12px;
       flex-wrap: wrap;
     }}
+    .toolbar {{
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      align-items: end;
+      margin-bottom: 14px;
+    }}
+    .toolbar-field {{
+      display: grid;
+      gap: 6px;
+    }}
+    .toolbar-note {{
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }}
     pre {{
       margin: 0;
       white-space: pre-wrap;
@@ -706,9 +751,267 @@ def _render_construction_html(settings: Settings) -> str:
       border-radius: 14px;
       padding: 12px;
     }}
+    details {{
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--paper);
+      overflow: hidden;
+    }}
+    details summary {{
+      cursor: pointer;
+      padding: 12px 14px;
+      font-weight: 700;
+      background: #fbf5ea;
+    }}
+    details > pre {{
+      border: 0;
+      border-top: 1px solid var(--line);
+      border-radius: 0;
+    }}
+    .plan-stage {{
+      display: grid;
+      gap: 16px;
+    }}
+    .plan-header {{
+      display: grid;
+      gap: 16px;
+      grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+      align-items: start;
+    }}
+    .plan-banner {{
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      background:
+        linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(15, 118, 110, 0.08)),
+        var(--paper);
+    }}
+    .plan-date {{
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }}
+    .plan-title {{
+      font-size: 32px;
+      line-height: 1.05;
+      margin: 0 0 8px;
+    }}
+    .plan-summary-text {{
+      color: var(--muted);
+      line-height: 1.5;
+      margin: 0;
+    }}
+    .issue-card {{
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+      background: var(--paper);
+      display: grid;
+      gap: 12px;
+    }}
+    .issue-section {{
+      display: grid;
+      gap: 8px;
+    }}
+    .issue-title {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-weight: 700;
+    }}
+    .chip-row {{
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }}
+    .chip {{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 13px;
+      border: 1px solid transparent;
+      background: #f5efe3;
+      color: var(--ink);
+    }}
+    .chip.risk {{
+      background: rgba(185, 28, 28, 0.08);
+      color: var(--danger);
+      border-color: rgba(185, 28, 28, 0.18);
+    }}
+    .chip.gap {{
+      background: rgba(180, 83, 9, 0.08);
+      color: var(--warn);
+      border-color: rgba(180, 83, 9, 0.18);
+    }}
+    .chip.ok {{
+      background: rgba(15, 118, 110, 0.08);
+      color: var(--ok);
+      border-color: rgba(15, 118, 110, 0.18);
+    }}
+    .plan-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+    }}
+    .assignment-card {{
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,248,239,0.98));
+      display: grid;
+      gap: 12px;
+      transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+    }}
+    .assignment-card.is-selected {{
+      border-color: rgba(15, 118, 110, 0.42);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.08);
+      transform: translateY(-1px);
+    }}
+    .assignment-top {{
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 12px;
+    }}
+    .assignment-site {{
+      font-size: 24px;
+      line-height: 1.05;
+      margin: 0;
+    }}
+    .assignment-meta {{
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }}
+    .score-badge {{
+      min-width: 82px;
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: rgba(15, 118, 110, 0.1);
+      color: var(--ok);
+      text-align: center;
+      border: 1px solid rgba(15, 118, 110, 0.15);
+    }}
+    .score-badge .score-label {{
+      display: block;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 10px;
+      margin-bottom: 4px;
+    }}
+    .score-badge .score-value {{
+      font-size: 22px;
+      font-weight: 700;
+    }}
+    .crew-list, .reason-list {{
+      display: grid;
+      gap: 8px;
+    }}
+    .crew-member {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(245, 239, 227, 0.78);
+      border: 1px solid var(--line);
+      font-size: 14px;
+    }}
+    .crew-member strong {{
+      font-size: 15px;
+    }}
+    .crew-note {{
+      color: var(--muted);
+      font-size: 12px;
+    }}
+    .vehicle-card {{
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(221, 244, 255, 0.58);
+      border: 1px solid rgba(14, 116, 144, 0.16);
+    }}
+    .vehicle-card.missing {{
+      background: rgba(185, 28, 28, 0.05);
+      border-color: rgba(185, 28, 28, 0.16);
+      color: var(--danger);
+    }}
+    .reason-list li {{
+      margin-left: 18px;
+      line-height: 1.45;
+      color: #39424c;
+    }}
+    .assignment-actions {{
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }}
+    .assignment-actions button {{
+      padding: 9px 12px;
+    }}
+    .site-search {{
+      letter-spacing: 0.01em;
+    }}
+    .view-caption {{
+      margin: 2px 0 14px;
+      color: var(--muted);
+      font-size: 13px;
+    }}
+    .no-print {{
+      display: initial;
+    }}
+    .empty-state {{
+      border: 1px dashed var(--line);
+      border-radius: 18px;
+      padding: 28px 20px;
+      text-align: center;
+      color: var(--muted);
+      background: rgba(255, 253, 248, 0.72);
+    }}
     @media (max-width: 960px) {{
       .hero {{ grid-template-columns: 1fr; }}
       .row {{ grid-template-columns: 1fr; }}
+      .toolbar {{ grid-template-columns: 1fr; }}
+      .plan-header {{ grid-template-columns: 1fr; }}
+    }}
+    @media print {{
+      body {{
+        background: white;
+      }}
+      .hero,
+      .no-print,
+      details,
+      .panel:not(.print-keep) {{
+        display: none !important;
+      }}
+      main {{
+        max-width: none;
+        padding: 0;
+      }}
+      .panel {{
+        border: 0;
+        box-shadow: none;
+        padding: 0;
+        background: white;
+      }}
+      .plan-grid {{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }}
+      .assignment-card,
+      .issue-card,
+      .plan-banner {{
+        background: white;
+        break-inside: avoid;
+        page-break-inside: avoid;
+        box-shadow: none;
+      }}
     }}
   </style>
 </head>
@@ -722,9 +1025,12 @@ def _render_construction_html(settings: Settings) -> str:
           <button id="refreshOverview">Refresh Overview</button>
           <button class="secondary" id="generatePlan">Generate Today Plan</button>
           <button class="secondary" id="replanButton">Replan From Reason</button>
+          <button class="secondary no-print" id="printPlan">Print Day Report</button>
         </div>
       </div>
-      <pre id="overviewBox">Loading overview…</pre>
+      <section id="overviewBox" class="metric-grid">
+        <div class="metric"><div class="label">Loading</div><div class="value">…</div></div>
+      </section>
     </section>
 
     <section class="grid">
@@ -761,12 +1067,39 @@ def _render_construction_html(settings: Settings) -> str:
     </section>
 
     <section class="grid">
-      <article class="panel">
+      <article class="panel print-keep">
         <h2>Latest Plan</h2>
-        <pre id="planBox">Plan output will appear here.</pre>
+        <div class="toolbar no-print">
+          <label class="toolbar-field">Sort View
+            <select id="planSort">
+              <option value="fit_desc">Highest Fit Score</option>
+              <option value="risk_first">Risk First</option>
+              <option value="gap_first">Gap First</option>
+              <option value="site_name">Site Name</option>
+            </select>
+          </label>
+          <label class="toolbar-field">Filter View
+            <select id="planFilter">
+              <option value="all">Show All Sites</option>
+              <option value="attention_only">Only Need Attention</option>
+              <option value="risk_only">Only Risks</option>
+              <option value="gap_only">Only Gaps</option>
+            </select>
+          </label>
+          <label class="toolbar-field">Search
+            <input id="planSearch" class="site-search" placeholder="Search site, employee, vehicle">
+          </label>
+          <button type="button" class="secondary" id="resetPlanView">Reset View</button>
+        </div>
+        <p class="toolbar-note no-print">先看卡片，再决定是否改排。点击任一工地卡片里的按钮，会把当前班组和车辆带到右侧 override 表单。</p>
+        <p id="planViewCaption" class="view-caption no-print">Current view: all sites.</p>
+        <section id="planBox" class="plan-stage">
+          <div class="empty-state">Plan output will appear here.</div>
+        </section>
       </article>
       <article class="panel">
         <h2>Overrides</h2>
+        <p id="overrideHint" class="subtle">Click “Prepare Override” on any site card to prefill this form.</p>
         <div class="row">
           <label>Plan ID<input id="overridePlanId" placeholder="plan id"></label>
           <label>Assignment ID<input id="overrideAssignmentId" placeholder="assignment id"></label>
@@ -809,17 +1142,329 @@ def _render_construction_html(settings: Settings) -> str:
       return JSON.stringify(value, null, 2);
     }}
 
+    function escapeHtml(value) {{
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }}
+
+    function metricCard(label, value) {{
+      return `
+        <section class="metric">
+          <div class="label">${{escapeHtml(label)}}</div>
+          <div class="value">${{escapeHtml(value)}}</div>
+        </section>
+      `;
+    }}
+
+    function renderOverview(data) {{
+      if (!data) {{
+        overviewBox.innerHTML = metricCard("Overview", "N/A");
+        return;
+      }}
+      const counts = data.counts || {{}};
+      overviewBox.innerHTML = [
+        metricCard("Date", data.work_date || "today"),
+        metricCard("Employees", counts.employees ?? 0),
+        metricCard("Sites", counts.sites ?? 0),
+        metricCard("Today Needs", counts.requirements ?? 0),
+        metricCard("Vehicles", counts.vehicles ?? 0),
+        metricCard("Pending Notes", counts.pending_notes ?? 0),
+      ].join("");
+    }}
+
+    function summarizeCrew(memberNames) {{
+      if (!memberNames || memberNames.length === 0) {{
+        return "待补位";
+      }}
+      return memberNames.join(" + ");
+    }}
+
+    function renderCrewMembers(assignment, byName) {{
+      const memberNames = assignment.employee_names || [];
+      if (!memberNames.length) {{
+        return `<div class="crew-member"><strong>待补位</strong><span class="crew-note">当前没有满足约束的班组</span></div>`;
+      }}
+      return memberNames.map(name => {{
+        const employee = byName.get(name);
+        const noteBits = [];
+        if (employee?.primary_skill) noteBits.push(employee.primary_skill);
+        if (employee?.can_lead_team) noteBits.push("可带队");
+        if (employee?.can_drive) noteBits.push("可开车");
+        if (employee?.certificates?.length) noteBits.push(employee.certificates.join(" / "));
+        return `
+          <div class="crew-member">
+            <div>
+              <strong>${{escapeHtml(name)}}</strong>
+              <div class="crew-note">${{escapeHtml(noteBits.join(" · ") || "现场作业"))}}</div>
+            </div>
+          </div>
+        `;
+      }}).join("");
+    }}
+
+    function renderIssueChips(items, type, emptyText) {{
+      if (!items || items.length === 0) {{
+        return `<span class="chip ok">${{escapeHtml(emptyText)}}</span>`;
+      }}
+      return items.map(item => `<span class="chip ${{type}}">${{escapeHtml(item)}}</span>`).join("");
+    }}
+
+    function assignmentHasGap(assignment) {{
+      const employeeNames = assignment?.employee_names || [];
+      return !employeeNames.length || !assignment?.vehicle;
+    }}
+
+    function planNeedsAttention(assignment) {{
+      return assignmentHasGap(assignment) || ((assignment?.risk_flags || []).length > 0);
+    }}
+
+    function getPlanViewState() {{
+      return {{
+        sort: document.getElementById("planSort").value,
+        filter: document.getElementById("planFilter").value,
+        search: document.getElementById("planSearch").value.trim().toLowerCase(),
+      }};
+    }}
+
+    function sortAssignments(assignments, mode) {{
+      const items = [...assignments];
+      const compareScore = (left, right) => Number(right.score || 0) - Number(left.score || 0);
+      if (mode === "risk_first") {{
+        items.sort((left, right) => {{
+          const riskDelta = (right.risk_flags || []).length - (left.risk_flags || []).length;
+          if (riskDelta !== 0) return riskDelta;
+          const gapDelta = Number(assignmentHasGap(right)) - Number(assignmentHasGap(left));
+          if (gapDelta !== 0) return gapDelta;
+          return compareScore(left, right);
+        }});
+        return items;
+      }}
+      if (mode === "gap_first") {{
+        items.sort((left, right) => {{
+          const gapDelta = Number(assignmentHasGap(right)) - Number(assignmentHasGap(left));
+          if (gapDelta !== 0) return gapDelta;
+          const riskDelta = (right.risk_flags || []).length - (left.risk_flags || []).length;
+          if (riskDelta !== 0) return riskDelta;
+          return compareScore(left, right);
+        }});
+        return items;
+      }}
+      if (mode === "site_name") {{
+        items.sort((left, right) => String(left.site_name || "").localeCompare(String(right.site_name || ""), "zh-Hans-CN"));
+        return items;
+      }}
+      items.sort(compareScore);
+      return items;
+    }}
+
+    function filterAssignments(assignments, viewState) {{
+      return assignments.filter(assignment => {{
+        if (viewState.filter === "attention_only" && !planNeedsAttention(assignment)) {{
+          return false;
+        }}
+        if (viewState.filter === "risk_only" && (assignment.risk_flags || []).length === 0) {{
+          return false;
+        }}
+        if (viewState.filter === "gap_only" && !assignmentHasGap(assignment)) {{
+          return false;
+        }}
+        if (!viewState.search) {{
+          return true;
+        }}
+        const searchHaystack = [
+          assignment.site_name || "",
+          ...(assignment.employee_names || []),
+          assignment.vehicle?.vehicle_code || "",
+          ...(assignment.risk_flags || []),
+        ].join(" ").toLowerCase();
+        return searchHaystack.includes(viewState.search);
+      }});
+    }}
+
+    function setPlanViewCaption(totalCount, visibleCount, viewState) {{
+      const modeLabel = {{
+        fit_desc: "按匹配分排序",
+        risk_first: "风险优先",
+        gap_first: "缺口优先",
+        site_name: "按工地名称排序",
+      }}[viewState.sort] || "当前排序";
+      const filterLabel = {{
+        all: "全部工地",
+        attention_only: "只看需关注工地",
+        risk_only: "只看风险工地",
+        gap_only: "只看缺口工地",
+      }}[viewState.filter] || "全部工地";
+      const searchLabel = viewState.search ? `，搜索“${{escapeHtml(viewState.search)}}”` : "";
+      planViewCaption.innerHTML = `当前视图：${{escapeHtml(filterLabel)}}，${{escapeHtml(modeLabel)}}，显示 ${{escapeHtml(visibleCount)}} / ${{escapeHtml(totalCount)}} 个工地${{searchLabel}}。`;
+    }}
+
+    function prefillOverrideForm(planId, assignmentId, employeeNames, vehicleCode, siteName) {{
+      document.getElementById("overridePlanId").value = planId || "";
+      document.getElementById("overrideAssignmentId").value = assignmentId || "";
+      document.getElementById("overrideEmployees").value = (employeeNames || []).join(",");
+      document.getElementById("overrideVehicle").value = vehicleCode || "";
+      if (!document.getElementById("overrideReasonText").value.trim()) {{
+        document.getElementById("overrideReasonText").value = siteName ? `调整 ${{siteName}} 今日排班` : "";
+      }}
+      window.__selectedAssignmentId = assignmentId || "";
+      overrideHint.textContent = siteName ? `正在编辑：${{siteName}}。可以直接修改人员、车辆和原因。` : "Override draft ready.";
+      if (window.__latestConstructionPlan) {{
+        renderPlan(window.__latestConstructionPlan);
+      }}
+      document.getElementById("overrideEmployees").focus();
+      document.getElementById("overrideEmployees").scrollIntoView({{ behavior: "smooth", block: "center" }});
+    }}
+
+    function rerenderLatestPlan() {{
+      if (window.__latestConstructionPlan) {{
+        renderPlan(window.__latestConstructionPlan);
+      }}
+    }}
+
+    function renderPlan(plan) {{
+      if (!plan || !plan.assignments || plan.assignments.length === 0) {{
+        window.__latestConstructionPlan = plan || null;
+        setPlanViewCaption(0, 0, getPlanViewState());
+        planBox.innerHTML = `<div class="empty-state">No draft plan yet. Generate today’s plan to see the owner view.</div>`;
+        return;
+      }}
+      window.__latestConstructionPlan = plan;
+      const summary = plan.summary || {{}};
+      const risks = summary.risks || [];
+      const gaps = summary.gaps || [];
+      const allEmployees = Array.isArray(window.__constructionEmployees) ? window.__constructionEmployees : [];
+      const byName = new Map(allEmployees.map(item => [item.name, item]));
+      const viewState = getPlanViewState();
+      const visibleAssignments = sortAssignments(filterAssignments(plan.assignments, viewState), viewState.sort);
+      const hiddenCount = Math.max(0, plan.assignments.length - visibleAssignments.length);
+      setPlanViewCaption(plan.assignments.length, visibleAssignments.length, viewState);
+      const assignmentCards = visibleAssignments.map(assignment => {{
+        const vehicle = assignment.vehicle;
+        const explanation = assignment.explanation || {{}};
+        const factors = explanation.factors || [];
+        const riskFlags = assignment.risk_flags || [];
+        const selectedClass = assignment.id === window.__selectedAssignmentId ? " is-selected" : "";
+        return `
+          <article class="assignment-card${{selectedClass}}">
+            <div class="assignment-top">
+              <div>
+                <div class="plan-date">Site Assignment</div>
+                <h3 class="assignment-site">${{escapeHtml(assignment.site_name || "Unnamed Site")}}</h3>
+                <div class="assignment-meta">
+                  班组：${{escapeHtml(summarizeCrew(assignment.employee_names || []))}}<br>
+                  工地编号：${{escapeHtml(assignment.site_id || "n/a")}}
+                </div>
+              </div>
+              <div class="score-badge">
+                <span class="score-label">Fit Score</span>
+                <span class="score-value">${{escapeHtml(Number(assignment.score || 0).toFixed(1))}}</span>
+              </div>
+            </div>
+
+            <div class="crew-list">
+              ${{renderCrewMembers(assignment, byName)}}
+            </div>
+
+            <div class="vehicle-card${{vehicle ? "" : " missing"}}">
+              <strong>Vehicle</strong><br>
+              ${{vehicle ? escapeHtml(vehicle.vehicle_code || vehicle.id || "assigned") : "未分配车辆"}}
+            </div>
+
+            <div>
+              <div class="label">Why This Works</div>
+              <ul class="reason-list">
+                ${{(factors.length ? factors : ["当前没有详细解释因子"]).map(item => `<li>${{escapeHtml(item)}}</li>`).join("")}}
+              </ul>
+            </div>
+
+            <div class="chip-row">
+              ${{renderIssueChips(riskFlags, "risk", "当前无单独风险提示")}}
+            </div>
+
+            <div class="assignment-actions no-print">
+              <button
+                type="button"
+                class="secondary prefill-override"
+                data-plan-id="${{escapeHtml(plan.id || "")}}"
+                data-assignment-id="${{escapeHtml(assignment.id || "")}}"
+                data-site-name="${{escapeHtml(assignment.site_name || "")}}"
+                data-employees="${{escapeHtml((assignment.employee_names || []).join(","))}}"
+                data-vehicle="${{escapeHtml(vehicle?.vehicle_code || "")}}"
+              >Prepare Override</button>
+            </div>
+          </article>
+        `;
+      }}).join("");
+
+      planBox.innerHTML = `
+        <section class="plan-header">
+          <article class="plan-banner">
+            <div class="plan-date">${{escapeHtml(plan.work_date || "today")}} · Draft Dispatch</div>
+            <h3 class="plan-title">今日排班总览</h3>
+            <p class="plan-summary-text">
+              今日共安排 ${{escapeHtml(summary.assignment_count ?? plan.assignments.length)}} 个工地，
+              风险 ${{escapeHtml(summary.risk_count ?? risks.length)}} 项，
+              缺口 ${{escapeHtml(summary.gap_count ?? gaps.length)}} 项。
+              下面每张卡片就是一个工地当天的建议安排${{hiddenCount ? `；当前视图隐藏了 ${{hiddenCount}} 个工地` : ""}}。
+            </p>
+            <div class="metric-grid">
+              ${{metricCard("Sites Assigned", summary.assignment_count ?? plan.assignments.length)}}
+              ${{metricCard("Risks", summary.risk_count ?? risks.length)}}
+              ${{metricCard("Gaps", summary.gap_count ?? gaps.length)}}
+              ${{metricCard("Generated", (plan.generated_at || "").replace("T", " ").slice(0, 16) || "now")}}
+            </div>
+          </article>
+
+          <article class="issue-card">
+            <section class="issue-section">
+              <div class="issue-title">
+                <span>Key Risks</span>
+                <span class="chip risk">${{escapeHtml(risks.length)}}</span>
+              </div>
+              <div class="chip-row">${{renderIssueChips(risks.slice(0, 8), "risk", "当前没有高风险提示")}}</div>
+            </section>
+
+            <section class="issue-section">
+              <div class="issue-title">
+                <span>Staffing Gaps</span>
+                <span class="chip gap">${{escapeHtml(gaps.length)}}</span>
+              </div>
+              <div class="chip-row">${{renderIssueChips(gaps.slice(0, 8), "gap", "当前没有缺口")}}</div>
+            </section>
+          </article>
+        </section>
+
+        <section class="plan-grid">
+          ${{assignmentCards || `<div class="empty-state">当前筛选条件下没有匹配工地。请放宽过滤条件再看。</div>`}}
+        </section>
+
+        <details>
+          <summary>Raw Plan JSON</summary>
+          <pre>${{escapeHtml(pretty(plan))}}</pre>
+        </details>
+      `;
+    }}
+
     const overviewBox = document.getElementById("overviewBox");
     const resourceBox = document.getElementById("resourceBox");
     const planBox = document.getElementById("planBox");
+    const planViewCaption = document.getElementById("planViewCaption");
     const notesBox = document.getElementById("notesBox");
     const overrideBox = document.getElementById("overrideBox");
+    const overrideHint = document.getElementById("overrideHint");
+    window.__constructionEmployees = [];
+    window.__latestConstructionPlan = null;
+    window.__selectedAssignmentId = "";
 
     async function refreshOverview() {{
       const payload = await apiGet("/api/construction/overview");
-      overviewBox.textContent = pretty(payload.data);
+      renderOverview(payload.data);
       if (payload.data.latest_plan) {{
-        planBox.textContent = pretty(payload.data.latest_plan);
+        renderPlan(payload.data.latest_plan);
       }}
     }}
 
@@ -827,6 +1472,9 @@ def _render_construction_html(settings: Settings) -> str:
       const kind = document.getElementById("resourceKind").value;
       const payload = await apiGet(`/api/construction/resources?kind=${{encodeURIComponent(kind)}}`);
       resourceBox.textContent = pretty(payload.data);
+      if (kind === "employees" && Array.isArray(payload.data)) {{
+        window.__constructionEmployees = payload.data;
+      }}
       const sample = Array.isArray(payload.data) && payload.data.length ? payload.data[0] : {{}};
       document.getElementById("resourceEditor").value = pretty(sample);
     }}
@@ -860,7 +1508,7 @@ def _render_construction_html(settings: Settings) -> str:
       const workDate = document.getElementById("workDate").value.trim();
       const actor = document.getElementById("actorInput").value.trim() || "web";
       const payload = await apiPost("/api/construction/plan/generate", {{ work_date: workDate || null, actor }});
-      planBox.textContent = pretty(payload.data);
+      renderPlan(payload.data);
       document.getElementById("overridePlanId").value = payload.data.id || "";
       await refreshOverview();
     }}
@@ -873,7 +1521,7 @@ def _render_construction_html(settings: Settings) -> str:
         return;
       }}
       const payload = await apiPost("/api/construction/plan/replan", {{ reason, work_date: workDate || null, actor }});
-      planBox.textContent = pretty(payload.data.plan);
+      renderPlan(payload.data.plan);
       document.getElementById("overridePlanId").value = payload.data.plan.id || "";
       await refreshOverview();
     }}
@@ -889,8 +1537,26 @@ def _render_construction_html(settings: Settings) -> str:
         reason_text: document.getElementById("overrideReasonText").value.trim(),
         should_learn: document.getElementById("overrideLearn").value === "true",
       }});
-      overrideBox.textContent = pretty(payload.data);
+      const assignment = payload.data?.assignment || {{}};
+      window.__selectedAssignmentId = assignment.id || window.__selectedAssignmentId;
+      overrideHint.textContent = assignment.site_name
+        ? `已更新：${{assignment.site_name}}。可继续修改或重新生成今日方案。`
+        : "Override applied.";
+      overrideBox.textContent = [
+        `Override ID: ${{payload.data.override_id || "n/a"}}`,
+        `Site: ${{assignment.site_name || "n/a"}}`,
+        `Crew: ${{(assignment.employee_names || []).join(" + ") || "待补位"}}`,
+        `Vehicle: ${{assignment.vehicle?.vehicle_code || "未分配"}}`,
+      ].join("\\n");
       await refreshOverview();
+    }}
+
+    function printCurrentPlan() {{
+      if (!window.__latestConstructionPlan) {{
+        planBox.innerHTML = `<div class="empty-state">请先生成今日排班，再打印日报。</div>`;
+        return;
+      }}
+      window.print();
     }}
 
     document.getElementById("refreshOverview").addEventListener("click", refreshOverview);
@@ -901,10 +1567,39 @@ def _render_construction_html(settings: Settings) -> str:
     document.getElementById("generatePlan").addEventListener("click", generatePlan);
     document.getElementById("replanButton").addEventListener("click", replan);
     document.getElementById("applyOverride").addEventListener("click", applyOverride);
+    document.getElementById("printPlan").addEventListener("click", printCurrentPlan);
+    document.getElementById("planSort").addEventListener("change", rerenderLatestPlan);
+    document.getElementById("planFilter").addEventListener("change", rerenderLatestPlan);
+    document.getElementById("planSearch").addEventListener("input", rerenderLatestPlan);
+    document.getElementById("resetPlanView").addEventListener("click", () => {{
+      document.getElementById("planSort").value = "fit_desc";
+      document.getElementById("planFilter").value = "all";
+      document.getElementById("planSearch").value = "";
+      rerenderLatestPlan();
+    }});
+    planBox.addEventListener("click", event => {{
+      const trigger = event.target.closest(".prefill-override");
+      if (!trigger) {{
+        return;
+      }}
+      const employees = String(trigger.dataset.employees || "").split(",").map(item => item.trim()).filter(Boolean);
+      prefillOverrideForm(
+        trigger.dataset.planId || "",
+        trigger.dataset.assignmentId || "",
+        employees,
+        trigger.dataset.vehicle || "",
+        trigger.dataset.siteName || "",
+      );
+    }});
 
     refreshOverview();
     loadResources();
     loadNotes();
+    apiGet("/api/construction/resources?kind=employees").then(payload => {{
+      if (payload && Array.isArray(payload.data)) {{
+        window.__constructionEmployees = payload.data;
+      }}
+    }});
   </script>
 </body>
 </html>"""
