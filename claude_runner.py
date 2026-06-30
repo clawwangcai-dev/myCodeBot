@@ -95,6 +95,12 @@ class ClaudeRunner:
         if self._settings.claude_settings_file:
             command.extend(['--settings', str(self._settings.claude_settings_file)])
 
+        if self._settings.claude_model:
+            command.extend(['--model', self._settings.claude_model])
+
+        if self._settings.claude_effort:
+            command.extend(['--effort', self._settings.claude_effort])
+
         if include_partial_messages:
             command.append('--include-partial-messages')
 

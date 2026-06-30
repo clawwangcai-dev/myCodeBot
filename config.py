@@ -35,7 +35,13 @@ class Settings:
     session_store_path: Path
     workdir_store_path: Path
     approval_store_path: Path
+    model_store_path: Path
+    effort_store_path: Path
     media_store_path: Path
+    claude_model: str | None
+    claude_available_models: list[str]
+    claude_effort: str | None
+    claude_available_efforts: list[str]
     whisper_bin: str
     whisper_model: str
     whisper_fallback_models: list[str]
@@ -43,10 +49,14 @@ class Settings:
     whisper_threads: int
     codex_bin: str
     codex_model: str | None
+    codex_available_models: list[str]
+    codex_effort: str | None
+    codex_available_efforts: list[str]
     codex_sandbox: str
     codex_approval_policy: str
     copilot_bin: str
     copilot_model: str | None
+    copilot_available_models: list[str]
     copilot_use_gh: bool
     status_web_enabled: bool
     status_web_host: str
@@ -158,11 +168,25 @@ def _build_settings(
             base_dir=base_dir,
             default="approval_prefs.json",
         ),
+        model_store_path=_resolve_path(
+            values.get("MODEL_STORE_PATH"),
+            base_dir=base_dir,
+            default="model_overrides.json",
+        ),
+        effort_store_path=_resolve_path(
+            values.get("EFFORT_STORE_PATH"),
+            base_dir=base_dir,
+            default="effort_overrides.json",
+        ),
         media_store_path=_resolve_path(
             values.get("MEDIA_STORE_PATH"),
             base_dir=base_dir,
             default=str(workdir / ".telegram-media"),
         ),
+        claude_model=values.get("CLAUDE_MODEL", "").strip() or None,
+        claude_available_models=_parse_csv(values.get("CLAUDE_MODELS")),
+        claude_effort=values.get("CLAUDE_EFFORT", "").strip().lower() or None,
+        claude_available_efforts=_parse_csv(values.get("CLAUDE_EFFORTS", "low,medium,high,xhigh,max,ultracode")),
         whisper_bin=values.get("WHISPER_BIN", "whisper").strip() or "whisper",
         whisper_model=values.get("WHISPER_MODEL", "base").strip() or "base",
         whisper_fallback_models=_parse_csv(values.get("WHISPER_FALLBACK_MODELS", "tiny")),
@@ -170,10 +194,14 @@ def _build_settings(
         whisper_threads=max(1, int(values.get("WHISPER_THREADS", "2").strip() or "2")),
         codex_bin=values.get("CODEX_BIN", "codex").strip() or "codex",
         codex_model=values.get("CODEX_MODEL", "").strip() or None,
+        codex_available_models=_parse_csv(values.get("CODEX_MODELS")),
+        codex_effort=values.get("CODEX_EFFORT", "").strip().lower() or None,
+        codex_available_efforts=_parse_csv(values.get("CODEX_EFFORTS", "low,medium,high,extra high")),
         codex_sandbox=values.get("CODEX_SANDBOX", "workspace-write").strip() or "workspace-write",
         codex_approval_policy=values.get("CODEX_APPROVAL_POLICY", "on-request").strip() or "on-request",
         copilot_bin=values.get("COPILOT_BIN", "copilot").strip() or "copilot",
         copilot_model=values.get("COPILOT_MODEL", "").strip() or None,
+        copilot_available_models=_parse_csv(values.get("COPILOT_MODELS")),
         copilot_use_gh=_parse_bool(values.get("COPILOT_USE_GH"), default=False),
         status_web_enabled=status_web_enabled,
         status_web_host=values.get("STATUS_WEB_HOST", "127.0.0.1").strip() or "127.0.0.1",
@@ -250,6 +278,10 @@ def load_all_settings() -> list[Settings]:
             merged["WORKDIR_STORE_PATH"] = str(bot_data_dir / "chat_workdirs.json")
         if "APPROVAL_STORE_PATH" not in item_values:
             merged["APPROVAL_STORE_PATH"] = str(bot_data_dir / "approval_prefs.json")
+        if "MODEL_STORE_PATH" not in item_values:
+            merged["MODEL_STORE_PATH"] = str(bot_data_dir / "model_overrides.json")
+        if "EFFORT_STORE_PATH" not in item_values:
+            merged["EFFORT_STORE_PATH"] = str(bot_data_dir / "effort_overrides.json")
         if "MEDIA_STORE_PATH" not in item_values:
             merged["MEDIA_STORE_PATH"] = str(bot_data_dir / ".telegram-media")
         if "CONSTRUCTION_AGENT_DB_PATH" not in item_values:

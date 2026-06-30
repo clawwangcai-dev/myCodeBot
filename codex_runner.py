@@ -102,6 +102,9 @@ class CodexRunner:
         if self._settings.codex_model:
             command.extend(["-m", self._settings.codex_model])
 
+        if self._settings.codex_effort:
+            command.extend(["-c", f'model_reasoning_effort="{self._settings.codex_effort}"'])
+
         for image_path in image_paths:
             command.extend(["-i", image_path])
 

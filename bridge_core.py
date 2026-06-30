@@ -18,6 +18,7 @@ from codex_usage import load_codex_usage
 from config import Settings
 from construction_agent import ConstructionAgentService
 from media_handler import MediaHandler
+from model_store import ModelStore
 from reminder_scheduler import ReminderScheduler, ReminderSchedulerError
 from resume_telegram_session import (
     format_resume_target,
@@ -45,6 +46,17 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "bridge_health": "Bridge health:",
         "bridge_version": "Bridge version:",
         "project_status": "当前项目目录状态:",
+        "model_status": "当前模型状态:",
+        "model_usage": "用法:\n/model\n/model list\n/model <model>\n/model default",
+        "model_unavailable": "模型不在当前 bot 的可选列表中:\nrequested: {model}\navailable_models:\n{available}",
+        "model_switched": "已将当前 chat 的模型切换为 {model}，并清除旧会话。",
+        "model_reset": "已恢复默认模型并清除旧会话。",
+        "effort_status": "当前思考深度状态:",
+        "effort_usage": "用法:\n/effort\n/effort list\n/effort <low|medium|high|extra high|xhigh|max|ultracode>\n/effort default",
+        "effort_unavailable": "思考深度不在当前 bot 的可选列表中:\nrequested: {effort}\navailable_efforts:\n{available}",
+        "effort_switched": "已将当前 chat 的思考深度切换为 {effort}，并清除旧会话。",
+        "effort_reset": "已恢复默认思考深度并清除旧会话。",
+        "effort_unsupported": "当前 provider 不支持通过桥接切换思考深度。",
         "session_cleared": "已清除当前会话。",
         "no_session_to_clear": "当前没有可清除的会话。",
         "auto_approval_disabled": "已关闭自动批准，后续权限请求将再次等待 /approve。",
@@ -129,7 +141,7 @@ UI_TEXT: dict[str, dict[str, str]] = {
             "直接发文本即可转发到 {provider}。\n"
             "也支持图片和语音消息。\n"
             "命令: /help /status /health /version /clear /project /project_status /approve /deny "
-            "/approve_always /approve_bypass /approve_manual /resume_local "
+            "/model /effort /approve_always /approve_bypass /approve_manual /resume_local "
             "/schedule_reminder /schedule_list /schedule_cancel"
         ),
         "resume_block": "bot: {bot}\nprovider: {provider}\nsession_id: {session_id}\ncwd: {cwd}\ncommand: {command}",
@@ -161,6 +173,17 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "bridge_health": "Bridge-Status:",
         "bridge_version": "Bridge-Version:",
         "project_status": "Aktueller Projektverzeichnis-Status:",
+        "model_status": "Aktueller Modellstatus:",
+        "model_usage": "Verwendung:\n/model\n/model list\n/model <model>\n/model default",
+        "model_unavailable": "Das Modell ist nicht in der Liste fuer diesen Bot:\nrequested: {model}\navailable_models:\n{available}",
+        "model_switched": "Modell fuer diesen Chat auf {model} umgestellt und alte Sitzung geloescht.",
+        "model_reset": "Standardmodell wiederhergestellt und alte Sitzung geloescht.",
+        "effort_status": "Aktueller Effort-Status:",
+        "effort_usage": "Verwendung:\n/effort\n/effort list\n/effort <low|medium|high|extra high|xhigh|max|ultracode>\n/effort default",
+        "effort_unavailable": "Effort ist nicht in der Liste fuer diesen Bot:\nrequested: {effort}\navailable_efforts:\n{available}",
+        "effort_switched": "Effort fuer diesen Chat auf {effort} umgestellt und alte Sitzung geloescht.",
+        "effort_reset": "Standard-Effort wiederhergestellt und alte Sitzung geloescht.",
+        "effort_unsupported": "Der aktuelle Provider unterstuetzt Effort-Umschaltung ueber die Bridge nicht.",
         "session_cleared": "Die aktuelle Sitzung wurde gelöscht.",
         "no_session_to_clear": "Es gibt keine Sitzung zum Löschen.",
         "auto_approval_disabled": "Auto-Freigabe wurde deaktiviert. Weitere Anfragen warten wieder auf /approve.",
@@ -245,7 +268,7 @@ UI_TEXT: dict[str, dict[str, str]] = {
             "Sende einfach Text, um ihn an {provider} weiterzuleiten.\n"
             "Bilder und Sprachnachrichten werden ebenfalls unterstützt.\n"
             "Befehle: /help /status /health /version /clear /project /project_status /approve /deny "
-            "/approve_always /approve_bypass /approve_manual /resume_local "
+            "/model /effort /approve_always /approve_bypass /approve_manual /resume_local "
             "/schedule_reminder /schedule_list /schedule_cancel"
         ),
         "resume_block": "bot: {bot}\nprovider: {provider}\nsession_id: {session_id}\ncwd: {cwd}\ncommand: {command}",
@@ -277,6 +300,17 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "bridge_health": "Bridge health:",
         "bridge_version": "Bridge version:",
         "project_status": "Current project directory status:",
+        "model_status": "Current model status:",
+        "model_usage": "Usage:\n/model\n/model list\n/model <model>\n/model default",
+        "model_unavailable": "Model is not in this bot's allowed list:\nrequested: {model}\navailable_models:\n{available}",
+        "model_switched": "Switched this chat to model {model} and cleared the old session.",
+        "model_reset": "Restored the default model and cleared the old session.",
+        "effort_status": "Current effort status:",
+        "effort_usage": "Usage:\n/effort\n/effort list\n/effort <low|medium|high|extra high|xhigh|max|ultracode>\n/effort default",
+        "effort_unavailable": "Effort is not in this bot's allowed list:\nrequested: {effort}\navailable_efforts:\n{available}",
+        "effort_switched": "Switched this chat to effort {effort} and cleared the old session.",
+        "effort_reset": "Restored the default effort and cleared the old session.",
+        "effort_unsupported": "The current provider does not support effort switching through this bridge.",
         "session_cleared": "Cleared the current session.",
         "no_session_to_clear": "There is no session to clear.",
         "auto_approval_disabled": "Auto-approval has been disabled. Future permission requests will wait for /approve again.",
@@ -361,7 +395,7 @@ UI_TEXT: dict[str, dict[str, str]] = {
             "Send plain text to forward it to {provider}.\n"
             "Images and voice messages are also supported.\n"
             "Commands: /help /status /health /version /clear /project /project_status /approve /deny "
-            "/approve_always /approve_bypass /approve_manual /resume_local "
+            "/model /effort /approve_always /approve_bypass /approve_manual /resume_local "
             "/schedule_reminder /schedule_list /schedule_cancel"
         ),
         "resume_block": "bot: {bot}\nprovider: {provider}\nsession_id: {session_id}\ncwd: {cwd}\ncommand: {command}",
@@ -396,6 +430,14 @@ STATUS_LABELS: dict[str, dict[str, str]] = {
         "workdir": "workdir",
         "cwd": "cwd",
         "streaming": "streaming",
+        "model": "model",
+        "default_model": "default_model",
+        "chat_model": "chat_model",
+        "available_models": "available_models",
+        "effort": "effort",
+        "default_effort": "default_effort",
+        "chat_effort": "chat_effort",
+        "available_efforts": "available_efforts",
         "project_override": "project_override",
         "pending_approval": "pending_approval",
         "approve_always": "approve_always",
@@ -425,6 +467,14 @@ STATUS_LABELS: dict[str, dict[str, str]] = {
         "workdir": "workdir",
         "cwd": "cwd",
         "streaming": "streaming",
+        "model": "model",
+        "default_model": "default_model",
+        "chat_model": "chat_model",
+        "available_models": "available_models",
+        "effort": "effort",
+        "default_effort": "default_effort",
+        "chat_effort": "chat_effort",
+        "available_efforts": "available_efforts",
         "project_override": "project_override",
         "pending_approval": "pending_approval",
         "approve_always": "approve_always",
@@ -454,6 +504,14 @@ STATUS_LABELS: dict[str, dict[str, str]] = {
         "workdir": "workdir",
         "cwd": "cwd",
         "streaming": "streaming",
+        "model": "model",
+        "default_model": "default_model",
+        "chat_model": "chat_model",
+        "available_models": "available_models",
+        "effort": "effort",
+        "default_effort": "default_effort",
+        "chat_effort": "chat_effort",
+        "available_efforts": "available_efforts",
         "project_override": "project_override",
         "pending_approval": "pending_approval",
         "approve_always": "approve_always",
@@ -525,6 +583,8 @@ class BridgeCore:
         version_info: dict[str, str],
         approvals: ApprovalState,
         workdirs: WorkdirStore,
+        models: ModelStore,
+        efforts: ModelStore,
         chat_log: ChatLogStore,
         reminders: ReminderScheduler | None,
         construction_agent: ConstructionAgentService | None,
@@ -538,6 +598,8 @@ class BridgeCore:
         self._version_info = version_info
         self._approvals = approvals
         self._workdirs = workdirs
+        self._models = models
+        self._efforts = efforts
         self._chat_log = chat_log
         self._reminders = reminders
         self._construction_agent = construction_agent
@@ -660,6 +722,8 @@ class BridgeCore:
             f"{labels['channel']}: {conversation.channel}",
             f"{labels['chat_id']}: {conversation.chat_id}",
             f"{labels['workdir']}: {effective_workdir}" if record is None else f"{labels['cwd']}: {record.cwd}",
+            f"{labels['model']}: {self._effective_model(conversation) or 'default'}",
+            f"{labels['effort']}: {self._effective_effort(conversation) or 'default'}",
             f"{labels['streaming']}: {self._bool_word(language, self._settings.claude_streaming)}",
             f"{labels['project_override']}: {project_override or self._off_word(language)}",
             f"{labels['pending_approval']}: {self._yes_no_word(language, self._approvals.get(conversation.key) is not None)}",
@@ -801,6 +865,12 @@ class BridgeCore:
                 ),
             )
             self._approvals.clear(conversation.key)
+            return
+        if text.startswith("/model"):
+            self._dispatch_model_command(conversation, text)
+            return
+        if text.startswith("/effort"):
+            self._dispatch_effort_command(conversation, text)
             return
         if text.startswith("/project_status"):
             self._send_message(conversation, self.build_project_status_text(conversation))
@@ -1073,7 +1143,7 @@ class BridgeCore:
         self._runtime_state.request_started()
 
         try:
-            response = self._continue_after_approval(approval)
+            response = self._continue_after_approval(conversation, approval)
             if response.session_id:
                 self._store.set(conversation.key, session_id=response.session_id, cwd=approval.cwd)
             for part in format_text_reply(response.text):
@@ -1098,8 +1168,12 @@ class BridgeCore:
             ):
                 self._send_message(conversation, part)
 
-    def _continue_after_approval(self, approval: PendingApproval) -> RunnerResponse:
-        runner = self._runner_for_workdir(Path(approval.cwd))
+    def _continue_after_approval(self, conversation: ConversationRef, approval: PendingApproval) -> RunnerResponse:
+        runner = self._runner_for_workdir(
+            Path(approval.cwd),
+            model=self._effective_model(conversation),
+            effort=self._effective_effort(conversation),
+        )
         if self._settings.claude_streaming:
             if approval.session_id:
                 updates = runner.stream_resume(
@@ -1203,6 +1277,128 @@ class BridgeCore:
                 allowed_root=matched_root,
                 workdir=candidate,
             ),
+        )
+
+    def build_model_status_text(self, conversation: ConversationRef) -> str:
+        language = self._conversation_language(conversation)
+        labels = STATUS_LABELS.get(language, STATUS_LABELS[DEFAULT_UI_LANGUAGE])
+        chat_model = self._models.get(conversation.key)
+        available_models = self._available_models()
+        return "\n".join(
+            [
+                self.render_ui_text(conversation, "model_status"),
+                f"{labels['bot']}: {self._settings.name}",
+                f"{labels['provider']}: {self._provider_label()}",
+                f"{labels['channel']}: {conversation.channel}",
+                f"{labels['chat_id']}: {conversation.chat_id}",
+                f"{labels['default_model']}: {self._default_model() or 'default'}",
+                f"{labels['chat_model']}: {chat_model or 'not set'}",
+                f"{labels['model']}: {self._effective_model(conversation) or 'default'}",
+                f"{labels['available_models']}: {', '.join(available_models) if available_models else 'not configured'}",
+            ]
+        )
+
+    def _dispatch_model_command(self, conversation: ConversationRef, text: str) -> None:
+        parts = text.split(maxsplit=1)
+        if len(parts) == 1:
+            self._send_message(conversation, self.build_model_status_text(conversation))
+            return
+
+        requested = parts[1].strip()
+        if not requested or requested.lower() in {"list", "status", "current"}:
+            self._send_message(conversation, self.build_model_status_text(conversation))
+            return
+
+        if requested.lower() in {"default", "reset"}:
+            self._models.clear(conversation.key)
+            self._store.clear(conversation.key)
+            self._approvals.clear(conversation.key)
+            self._send_message(conversation, self.render_ui_text(conversation, "model_reset"))
+            return
+
+        available_models = self._available_models()
+        if available_models and requested not in available_models:
+            self._send_message(
+                conversation,
+                self.render_ui_text(
+                    conversation,
+                    "model_unavailable",
+                    model=requested,
+                    available="\n".join(f"- {model}" for model in available_models),
+                ),
+            )
+            return
+
+        self._models.set(conversation.key, requested)
+        self._store.clear(conversation.key)
+        self._approvals.clear(conversation.key)
+        self._send_message(
+            conversation,
+            self.render_ui_text(conversation, "model_switched", model=requested),
+        )
+
+    def build_effort_status_text(self, conversation: ConversationRef) -> str:
+        language = self._conversation_language(conversation)
+        labels = STATUS_LABELS.get(language, STATUS_LABELS[DEFAULT_UI_LANGUAGE])
+        chat_effort = self._efforts.get(conversation.key)
+        available_efforts = self._available_efforts()
+        return "\n".join(
+            [
+                self.render_ui_text(conversation, "effort_status"),
+                f"{labels['bot']}: {self._settings.name}",
+                f"{labels['provider']}: {self._provider_label()}",
+                f"{labels['channel']}: {conversation.channel}",
+                f"{labels['chat_id']}: {conversation.chat_id}",
+                f"{labels['default_effort']}: {self._default_effort() or 'default'}",
+                f"{labels['chat_effort']}: {chat_effort or 'not set'}",
+                f"{labels['effort']}: {self._effective_effort(conversation) or 'default'}",
+                f"{labels['available_efforts']}: {', '.join(available_efforts) if available_efforts else 'not configured'}",
+            ]
+        )
+
+    def _dispatch_effort_command(self, conversation: ConversationRef, text: str) -> None:
+        if self._settings.provider not in {"claude", "codex"}:
+            self._send_message(conversation, self.render_ui_text(conversation, "effort_unsupported"))
+            return
+
+        parts = text.split(maxsplit=1)
+        if len(parts) == 1:
+            self._send_message(conversation, self.build_effort_status_text(conversation))
+            return
+
+        requested = parts[1].strip().lower()
+        if requested == "xhigh":
+            requested = "xhigh"
+        if not requested or requested in {"list", "status", "current"}:
+            self._send_message(conversation, self.build_effort_status_text(conversation))
+            return
+
+        if requested in {"default", "reset"}:
+            self._efforts.clear(conversation.key)
+            self._store.clear(conversation.key)
+            self._approvals.clear(conversation.key)
+            self._send_message(conversation, self.render_ui_text(conversation, "effort_reset"))
+            return
+
+        available_efforts = self._available_efforts()
+        if available_efforts and requested not in available_efforts:
+            self._send_message(
+                conversation,
+                self.render_ui_text(
+                    conversation,
+                    "effort_unavailable",
+                    effort=requested,
+                    available="\n".join(f"- {effort}" for effort in available_efforts),
+                ),
+            )
+            return
+
+        self._efforts.set(conversation.key, requested)
+        self._store.clear(conversation.key)
+        self._approvals.clear(conversation.key)
+        self._send_message(
+            conversation,
+            self.render_ui_text(conversation, "effort_switched", effort=requested),
         )
 
     def _dispatch_resume_local(self, conversation: ConversationRef, text: str) -> None:
@@ -1407,11 +1603,64 @@ class BridgeCore:
             return Path(override)
         return self._settings.claude_workdir
 
-    def _runner_for_conversation(self, conversation: ConversationRef) -> BridgeRunner:
-        return self._runner_for_workdir(self._effective_workdir(conversation))
+    def _default_model(self) -> str | None:
+        if self._settings.provider == "codex":
+            return self._settings.codex_model
+        if self._settings.provider == "copilot":
+            return self._settings.copilot_model
+        return self._settings.claude_model
 
-    def _runner_for_workdir(self, workdir: Path) -> BridgeRunner:
-        return build_runner(replace(self._settings, claude_workdir=workdir))
+    def _available_models(self) -> list[str]:
+        if self._settings.provider == "codex":
+            return self._settings.codex_available_models
+        if self._settings.provider == "copilot":
+            return self._settings.copilot_available_models
+        return self._settings.claude_available_models
+
+    def _effective_model(self, conversation: ConversationRef) -> str | None:
+        return self._models.get(conversation.key) or self._default_model()
+
+    def _default_effort(self) -> str | None:
+        if self._settings.provider == "codex":
+            return self._settings.codex_effort
+        if self._settings.provider == "claude":
+            return self._settings.claude_effort
+        return None
+
+    def _available_efforts(self) -> list[str]:
+        if self._settings.provider == "codex":
+            return self._settings.codex_available_efforts
+        if self._settings.provider == "claude":
+            return self._settings.claude_available_efforts
+        return []
+
+    def _effective_effort(self, conversation: ConversationRef) -> str | None:
+        if self._settings.provider not in {"claude", "codex"}:
+            return None
+        return self._efforts.get(conversation.key) or self._default_effort()
+
+    def _runner_for_conversation(self, conversation: ConversationRef) -> BridgeRunner:
+        return self._runner_for_workdir(
+            self._effective_workdir(conversation),
+            model=self._effective_model(conversation),
+            effort=self._effective_effort(conversation),
+        )
+
+    def _runner_for_workdir(
+        self,
+        workdir: Path,
+        *,
+        model: str | None = None,
+        effort: str | None = None,
+    ) -> BridgeRunner:
+        settings = self._settings
+        if settings.provider == "codex":
+            settings = replace(settings, claude_workdir=workdir, codex_model=model, codex_effort=effort)
+        elif settings.provider == "copilot":
+            settings = replace(settings, claude_workdir=workdir, copilot_model=model)
+        else:
+            settings = replace(settings, claude_workdir=workdir, claude_model=model, claude_effort=effort)
+        return build_runner(settings)
 
     def _help_text(self, conversation: ConversationRef) -> str:
         base = self.render_ui_text(

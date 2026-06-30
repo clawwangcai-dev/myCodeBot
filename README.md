@@ -182,6 +182,8 @@ who are you?
 - `/health` show bridge runtime health
 - `/version` show provider and binary versions
 - `/clear` clear the current backend session
+- `/model [model|default|list]` show or switch the model for this chat
+- `/effort [low|medium|high|extra high|xhigh|max|ultracode|default]` show or switch reasoning effort for this chat
 - `/project <path>` bind this chat to a project directory
 - `/project_status` show the current chat project directory
 - `/approve` approve one pending permission request
@@ -734,6 +736,8 @@ who are you?
 - `/health` 查看 bridge 运行状态
 - `/version` 查看 provider 和本机二进制版本
 - `/clear` 清除当前会话
+- `/model [模型|default|list]` 查看或切换当前 chat 的模型
+- `/effort [low|medium|high|extra high|xhigh|max|ultracode|default]` 查看或切换当前 chat 的思考深度
 - `/project <路径>` 把当前 chat 绑定到项目目录
 - `/project_status` 查看当前 chat 的项目目录
 - `/approve` 批准当前待授权请求

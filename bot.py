@@ -23,6 +23,7 @@ from config import Settings, load_all_settings
 from construction_agent import ConstructionAgentService
 from codex_usage import load_codex_usage
 from media_handler import DownloadedMedia, MediaHandler, MediaHandlerError
+from model_store import ModelStore
 from reminder_scheduler import ReminderScheduler
 from reminder_store import ReminderStore
 from resume_telegram_session import format_resume_target, get_resume_target, get_resume_targets_for_chat
@@ -65,6 +66,8 @@ class TelegramAPIError(RuntimeError):
 class RuntimeContext:
     store: SessionStore
     workdirs: WorkdirStore
+    models: ModelStore
+    efforts: ModelStore
     runner: BridgeRunner
     media_handler: MediaHandler
     runtime_state: BridgeRuntimeState
@@ -88,6 +91,8 @@ class LocalWebBridge:
         version_info: dict[str, str],
         approvals: ApprovalState,
         workdirs: WorkdirStore,
+        models: ModelStore,
+        efforts: ModelStore,
         chat_log: ChatLogStore,
         reminders: ReminderScheduler | None,
         construction_agent: ConstructionAgentService | None,
@@ -101,6 +106,8 @@ class LocalWebBridge:
             version_info,
             approvals,
             workdirs,
+            models,
+            efforts,
             chat_log,
             reminders,
             construction_agent,
@@ -144,6 +151,8 @@ class TelegramBot:
         version_info: dict[str, str],
         approvals: ApprovalState,
         workdirs: WorkdirStore,
+        models: ModelStore,
+        efforts: ModelStore,
         chat_log: ChatLogStore,
         reminders: ReminderScheduler | None,
         construction_agent: ConstructionAgentService | None,
@@ -156,6 +165,8 @@ class TelegramBot:
         self._version_info = version_info
         self._approvals = approvals
         self._workdirs = workdirs
+        self._models = models
+        self._efforts = efforts
         self._chat_log = chat_log
         self._offset = 0
         self._core = BridgeCore(
@@ -167,6 +178,8 @@ class TelegramBot:
             version_info,
             approvals,
             workdirs,
+            models,
+            efforts,
             chat_log,
             reminders,
             construction_agent,
@@ -252,12 +265,17 @@ class TelegramBot:
         payload = {
             "timeout": self._settings.telegram_poll_timeout,
             "offset": self._offset,
-            "allowed_updates": json.dumps(["message"]),
+            "allowed_updates": json.dumps(["message", "callback_query"]),
         }
         response = self._call("getUpdates", payload)
         return response.get("result", [])
 
     def _handle_update(self, update: dict[str, Any]) -> None:
+        callback_query = update.get("callback_query")
+        if isinstance(callback_query, dict):
+            self._handle_callback_query(callback_query)
+            return
+
         message = update.get("message") or {}
         chat = message.get("chat") or {}
         chat_id = chat.get("id")
@@ -267,6 +285,30 @@ class TelegramBot:
 
         self._runtime_state.record_message()
         self._dispatch_message(chat_id=chat_id, message=message)
+
+    def _handle_callback_query(self, callback_query: dict[str, Any]) -> None:
+        query_id = callback_query.get("id")
+        data = str(callback_query.get("data") or "")
+        message = callback_query.get("message") or {}
+        chat = message.get("chat") or {}
+        chat_id = chat.get("id")
+        if query_id:
+            try:
+                self._call("answerCallbackQuery", {"callback_query_id": str(query_id)})
+            except TelegramAPIError:
+                LOGGER.debug("Failed to answer callback query", exc_info=True)
+        if not chat_id:
+            return
+
+        conversation = ConversationRef(channel="telegram", chat_id=str(chat_id))
+        if data.startswith("model:"):
+            value = data.split(":", 1)[1].strip()
+            self._core.process_text(conversation, f"/model {value}")
+            return
+        if data.startswith("effort:"):
+            value = data.split(":", 1)[1].strip()
+            self._core.process_text(conversation, f"/effort {value}")
+            return
 
     def _dispatch_message(self, chat_id: int, message: dict[str, Any]) -> None:
         text = (message.get("text") or "").strip()
@@ -300,7 +342,86 @@ class TelegramBot:
         self._send_message(chat_id, self._core.render_ui_text(conversation, "unsupported_message_type"))
 
     def _dispatch_text(self, chat_id: int, text: str) -> None:
-        self._core.process_text(ConversationRef(channel="telegram", chat_id=str(chat_id)), text)
+        conversation = ConversationRef(channel="telegram", chat_id=str(chat_id))
+        command = text.split(maxsplit=1)[0].split("@", 1)[0].lower() if text else ""
+        if command == "/model" and self._is_picker_request(text):
+            self._send_model_picker(conversation)
+            return
+        if command == "/effort" and self._is_picker_request(text):
+            self._send_effort_picker(conversation)
+            return
+        self._core.process_text(conversation, text)
+
+    @staticmethod
+    def _is_picker_request(text: str) -> bool:
+        parts = text.split(maxsplit=1)
+        if len(parts) == 1:
+            return True
+        return parts[1].strip().lower() in {"list", "status", "current"}
+
+    def _send_model_picker(self, conversation: ConversationRef) -> None:
+        options = self._model_options()
+        if not options:
+            self._core.process_text(conversation, "/model")
+            return
+        self._send_message(
+            int(conversation.chat_id),
+            self._core.build_model_status_text(conversation),
+            reply_markup=self._inline_keyboard("model", options),
+        )
+
+    def _send_effort_picker(self, conversation: ConversationRef) -> None:
+        options = self._effort_options()
+        if not options:
+            self._core.process_text(conversation, "/effort")
+            return
+        self._send_message(
+            int(conversation.chat_id),
+            self._core.build_effort_status_text(conversation),
+            reply_markup=self._inline_keyboard("effort", options),
+        )
+
+    def _model_options(self) -> list[str]:
+        if self._settings.provider == "codex":
+            configured = self._settings.codex_available_models
+        elif self._settings.provider == "copilot":
+            configured = self._settings.copilot_available_models
+        else:
+            configured = self._settings.claude_available_models
+        return self._with_default_option(configured)
+
+    def _effort_options(self) -> list[str]:
+        if self._settings.provider == "codex":
+            configured = self._settings.codex_available_efforts
+        elif self._settings.provider == "claude":
+            configured = self._settings.claude_available_efforts
+        else:
+            configured = []
+        return self._with_default_option(configured)
+
+    @staticmethod
+    def _with_default_option(options: list[str]) -> list[str]:
+        result: list[str] = ["default"]
+        for option in options:
+            clean = option.strip()
+            if clean and clean not in result:
+                result.append(clean)
+        return result
+
+    @staticmethod
+    def _inline_keyboard(kind: str, options: list[str]) -> dict[str, Any]:
+        rows: list[list[dict[str, str]]] = []
+        for index in range(0, len(options), 2):
+            rows.append(
+                [
+                    {
+                        "text": option,
+                        "callback_data": f"{kind}:{option}",
+                    }
+                    for option in options[index : index + 2]
+                ]
+            )
+        return {"inline_keyboard": rows}
 
     def _dispatch_photo(self, chat_id: int, message: dict[str, Any]) -> None:
         photos = message.get("photo") or []
@@ -907,12 +1028,20 @@ class TelegramBot:
         for part in format_text_reply(f"{header}\n\n{body}"):
             self._send_message(chat_id, part)
 
-    def _send_message(self, chat_id: int, text: str, role: str = "system") -> dict[str, Any]:
+    def _send_message(
+        self,
+        chat_id: int,
+        text: str,
+        role: str = "system",
+        reply_markup: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         self._log_message(chat_id=chat_id, role=role, source="bridge", text=text)
         payload = {
             "chat_id": str(chat_id),
             "text": text,
         }
+        if reply_markup is not None:
+            payload["reply_markup"] = json.dumps(reply_markup, ensure_ascii=False)
         response = self._call("sendMessage", payload)
         return response.get("result", {})
 
@@ -990,6 +1119,8 @@ class TelegramBot:
             {"command": "health", "description": "Show bridge health"},
             {"command": "version", "description": "Show version info"},
             {"command": "clear", "description": "Clear current session"},
+            {"command": "model", "description": "Show or switch the chat model"},
+            {"command": "effort", "description": "Show or switch reasoning effort"},
             {"command": "project", "description": "Set per-chat project directory"},
             {"command": "project_status", "description": "Show current project directory"},
             {"command": "approve", "description": "Approve pending request"},
@@ -1077,6 +1208,8 @@ def _run_single_bot(settings: Settings) -> None:
         context.version_info,
         context.approvals,
         context.workdirs,
+        context.models,
+        context.efforts,
         context.chat_log,
         context.reminders,
         context.construction_agent,
@@ -1101,6 +1234,8 @@ def _run_single_bot(settings: Settings) -> None:
 def _build_runtime_context(settings: Settings) -> RuntimeContext:
     store = SessionStore(settings.session_store_path)
     workdirs = WorkdirStore(settings.workdir_store_path)
+    models = ModelStore(settings.model_store_path)
+    efforts = ModelStore(settings.effort_store_path)
     runner = build_runner(settings)
     media_handler = MediaHandler(settings)
     runtime_state = BridgeRuntimeState()
@@ -1113,6 +1248,8 @@ def _build_runtime_context(settings: Settings) -> RuntimeContext:
     return RuntimeContext(
         store=store,
         workdirs=workdirs,
+        models=models,
+        efforts=efforts,
         runner=runner,
         media_handler=media_handler,
         runtime_state=runtime_state,
@@ -1137,6 +1274,8 @@ def _run_web_only(settings: Settings, context: RuntimeContext) -> None:
         context.version_info,
         context.approvals,
         context.workdirs,
+        context.models,
+        context.efforts,
         context.chat_log,
         context.reminders,
         context.construction_agent,
