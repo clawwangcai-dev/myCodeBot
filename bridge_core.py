@@ -49,13 +49,13 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "model_status": "当前模型状态:",
         "model_usage": "用法:\n/model\n/model list\n/model <model>\n/model default",
         "model_unavailable": "模型不在当前 bot 的可选列表中:\nrequested: {model}\navailable_models:\n{available}",
-        "model_switched": "已将当前 chat 的模型切换为 {model}，并清除旧会话。",
-        "model_reset": "已恢复默认模型并清除旧会话。",
+        "model_switched": "已将当前 chat 的模型切换为 {model}，并保留当前会话。",
+        "model_reset": "已恢复默认模型，并保留当前会话。",
         "effort_status": "当前思考深度状态:",
         "effort_usage": "用法:\n/effort\n/effort list\n/effort <low|medium|high|extra high|xhigh|max|ultracode>\n/effort default",
         "effort_unavailable": "思考深度不在当前 bot 的可选列表中:\nrequested: {effort}\navailable_efforts:\n{available}",
-        "effort_switched": "已将当前 chat 的思考深度切换为 {effort}，并清除旧会话。",
-        "effort_reset": "已恢复默认思考深度并清除旧会话。",
+        "effort_switched": "已将当前 chat 的思考深度切换为 {effort}，并保留当前会话。",
+        "effort_reset": "已恢复默认思考深度，并保留当前会话。",
         "effort_unsupported": "当前 provider 不支持通过桥接切换思考深度。",
         "session_cleared": "已清除当前会话。",
         "no_session_to_clear": "当前没有可清除的会话。",
@@ -176,13 +176,13 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "model_status": "Aktueller Modellstatus:",
         "model_usage": "Verwendung:\n/model\n/model list\n/model <model>\n/model default",
         "model_unavailable": "Das Modell ist nicht in der Liste fuer diesen Bot:\nrequested: {model}\navailable_models:\n{available}",
-        "model_switched": "Modell fuer diesen Chat auf {model} umgestellt und alte Sitzung geloescht.",
-        "model_reset": "Standardmodell wiederhergestellt und alte Sitzung geloescht.",
+        "model_switched": "Modell fuer diesen Chat auf {model} umgestellt; aktuelle Sitzung bleibt erhalten.",
+        "model_reset": "Standardmodell wiederhergestellt; aktuelle Sitzung bleibt erhalten.",
         "effort_status": "Aktueller Effort-Status:",
         "effort_usage": "Verwendung:\n/effort\n/effort list\n/effort <low|medium|high|extra high|xhigh|max|ultracode>\n/effort default",
         "effort_unavailable": "Effort ist nicht in der Liste fuer diesen Bot:\nrequested: {effort}\navailable_efforts:\n{available}",
-        "effort_switched": "Effort fuer diesen Chat auf {effort} umgestellt und alte Sitzung geloescht.",
-        "effort_reset": "Standard-Effort wiederhergestellt und alte Sitzung geloescht.",
+        "effort_switched": "Effort fuer diesen Chat auf {effort} umgestellt; aktuelle Sitzung bleibt erhalten.",
+        "effort_reset": "Standard-Effort wiederhergestellt; aktuelle Sitzung bleibt erhalten.",
         "effort_unsupported": "Der aktuelle Provider unterstuetzt Effort-Umschaltung ueber die Bridge nicht.",
         "session_cleared": "Die aktuelle Sitzung wurde gelöscht.",
         "no_session_to_clear": "Es gibt keine Sitzung zum Löschen.",
@@ -303,13 +303,13 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "model_status": "Current model status:",
         "model_usage": "Usage:\n/model\n/model list\n/model <model>\n/model default",
         "model_unavailable": "Model is not in this bot's allowed list:\nrequested: {model}\navailable_models:\n{available}",
-        "model_switched": "Switched this chat to model {model} and cleared the old session.",
-        "model_reset": "Restored the default model and cleared the old session.",
+        "model_switched": "Switched this chat to model {model} and kept the current session.",
+        "model_reset": "Restored the default model and kept the current session.",
         "effort_status": "Current effort status:",
         "effort_usage": "Usage:\n/effort\n/effort list\n/effort <low|medium|high|extra high|xhigh|max|ultracode>\n/effort default",
         "effort_unavailable": "Effort is not in this bot's allowed list:\nrequested: {effort}\navailable_efforts:\n{available}",
-        "effort_switched": "Switched this chat to effort {effort} and cleared the old session.",
-        "effort_reset": "Restored the default effort and cleared the old session.",
+        "effort_switched": "Switched this chat to effort {effort} and kept the current session.",
+        "effort_reset": "Restored the default effort and kept the current session.",
         "effort_unsupported": "The current provider does not support effort switching through this bridge.",
         "session_cleared": "Cleared the current session.",
         "no_session_to_clear": "There is no session to clear.",
@@ -1311,7 +1311,6 @@ class BridgeCore:
 
         if requested.lower() in {"default", "reset"}:
             self._models.clear(conversation.key)
-            self._store.clear(conversation.key)
             self._approvals.clear(conversation.key)
             self._send_message(conversation, self.render_ui_text(conversation, "model_reset"))
             return
@@ -1330,7 +1329,6 @@ class BridgeCore:
             return
 
         self._models.set(conversation.key, requested)
-        self._store.clear(conversation.key)
         self._approvals.clear(conversation.key)
         self._send_message(
             conversation,
@@ -1375,7 +1373,6 @@ class BridgeCore:
 
         if requested in {"default", "reset"}:
             self._efforts.clear(conversation.key)
-            self._store.clear(conversation.key)
             self._approvals.clear(conversation.key)
             self._send_message(conversation, self.render_ui_text(conversation, "effort_reset"))
             return
@@ -1394,7 +1391,6 @@ class BridgeCore:
             return
 
         self._efforts.set(conversation.key, requested)
-        self._store.clear(conversation.key)
         self._approvals.clear(conversation.key)
         self._send_message(
             conversation,
