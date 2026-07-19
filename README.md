@@ -184,6 +184,8 @@ who are you?
 - `/clear` clear the current backend session
 - `/model [model|default|list]` show or switch the model for this chat
 - `/effort [low|medium|high|extra high|xhigh|max|ultracode|default]` show or switch reasoning effort for this chat
+- `/skills` show available skills for this bot
+- `/skill <name>` invoke a skill by name
 - `/project <path>` bind this chat to a project directory
 - `/project_status` show the current chat project directory
 - `/approve` approve one pending permission request
@@ -738,6 +740,8 @@ who are you?
 - `/clear` 清除当前会话
 - `/model [模型|default|list]` 查看或切换当前 chat 的模型
 - `/effort [low|medium|high|extra high|xhigh|max|ultracode|default]` 查看或切换当前 chat 的思考深度
+- `/skills` 查看当前 bot 可用的 skills
+- `/skill <名称>` 按名称调用一个 skill
 - `/project <路径>` 把当前 chat 绑定到项目目录
 - `/project_status` 查看当前 chat 的项目目录
 - `/approve` 批准当前待授权请求

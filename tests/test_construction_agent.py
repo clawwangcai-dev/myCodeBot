@@ -19,6 +19,7 @@ from chat_log import ChatLogStore
 from config import Settings, load_settings
 from construction_agent import ConstructionAgentService
 from media_handler import MediaHandler
+from model_store import ModelStore
 from runtime_state import BridgeRuntimeState
 from session_store import SessionStore
 from status_web import start_status_server
@@ -176,6 +177,8 @@ class ConstructionAgentTest(unittest.TestCase):
     def test_bridge_core_handles_construction_queries_without_provider(self) -> None:
         store = SessionStore(self.tmp_path / "sessions.json")
         workdirs = WorkdirStore(self.tmp_path / "chat_workdirs.json")
+        models = ModelStore(self.tmp_path / "models.json")
+        efforts = ModelStore(self.tmp_path / "efforts.json")
         approvals = ApprovalState(self.tmp_path / "approval_prefs.json")
         chat_log = ChatLogStore(self.tmp_path / "chat_log.json")
         runtime = BridgeRuntimeState()
@@ -204,6 +207,8 @@ class ConstructionAgentTest(unittest.TestCase):
             },
             approvals,
             workdirs,
+            models,
+            efforts,
             chat_log,
             None,
             self.service,
@@ -212,6 +217,64 @@ class ConstructionAgentTest(unittest.TestCase):
         core.process_text(ConversationRef(channel="telegram", chat_id="100"), "/construction overview")
         self.assertTrue(transport.messages)
         self.assertIn("建筑调度总览", transport.messages[-1][2])
+
+    def test_model_and_effort_switch_preserve_session(self) -> None:
+        settings = self._make_settings(
+            provider="codex",
+            codex_available_models=["gpt-5.5", "gpt-5.4"],
+            codex_available_efforts=["low", "high"],
+            codex_model="gpt-5.5",
+            codex_effort="low",
+        )
+        store = SessionStore(self.tmp_path / "sessions-model-effort.json")
+        workdirs = WorkdirStore(self.tmp_path / "chat_workdirs-model-effort.json")
+        models = ModelStore(self.tmp_path / "models-model-effort.json")
+        efforts = ModelStore(self.tmp_path / "efforts-model-effort.json")
+        approvals = ApprovalState(self.tmp_path / "approval-model-effort.json")
+        chat_log = ChatLogStore(self.tmp_path / "chat-model-effort.json")
+        transport = DummyTransport()
+        conversation = ConversationRef(channel="telegram", chat_id="100")
+        store.set(conversation.key, session_id="existing-session", cwd=str(self.tmp_path))
+        core = BridgeCore(
+            settings,
+            store,
+            DummyRunner(),
+            MediaHandler(settings),
+            BridgeRuntimeState(),
+            {
+                "provider": "codex",
+                "git_commit": "test",
+                "claude_version": "n/a",
+                "codex_version": "n/a",
+                "copilot_version": "n/a",
+                "transcription_backend": "n/a",
+                "faster_whisper_version": "n/a",
+                "whisper_bin": "n/a",
+                "whisper_resolved": "n/a",
+                "python": "test",
+                "platform": "test",
+                "claude_bin": "n/a",
+                "codex_bin": "n/a",
+                "copilot_bin": "n/a",
+            },
+            approvals,
+            workdirs,
+            models,
+            efforts,
+            chat_log,
+            None,
+            self.service,
+            transport,
+        )
+
+        core.process_text(conversation, "/model gpt-5.4")
+        self.assertEqual(store.get(conversation.key).session_id, "existing-session")
+        core.process_text(conversation, "/model default")
+        self.assertEqual(store.get(conversation.key).session_id, "existing-session")
+        core.process_text(conversation, "/effort high")
+        self.assertEqual(store.get(conversation.key).session_id, "existing-session")
+        core.process_text(conversation, "/effort default")
+        self.assertEqual(store.get(conversation.key).session_id, "existing-session")
 
     def test_status_web_construction_api_serves_overview_and_plan(self) -> None:
         store = SessionStore(self.tmp_path / "sessions-status.json")
@@ -280,6 +343,8 @@ class ConstructionAgentTest(unittest.TestCase):
         )
         store = SessionStore(self.tmp_path / "sessions-web-only.json")
         workdirs = WorkdirStore(self.tmp_path / "chat_workdirs-web-only.json")
+        models = ModelStore(self.tmp_path / "models-web-only.json")
+        efforts = ModelStore(self.tmp_path / "efforts-web-only.json")
         approvals = ApprovalState(self.tmp_path / "approval-web-only.json")
         chat_log = ChatLogStore(self.tmp_path / "chat-web-only.json")
         runtime = BridgeRuntimeState()
@@ -308,6 +373,8 @@ class ConstructionAgentTest(unittest.TestCase):
                 },
                 approvals,
                 workdirs,
+                models,
+                efforts,
                 chat_log,
                 None,
                 None,

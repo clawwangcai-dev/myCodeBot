@@ -99,7 +99,7 @@ class ClaudeRunner:
             command.extend(['--model', self._settings.claude_model])
 
         if self._settings.claude_effort:
-            command.extend(['--effort', self._settings.claude_effort])
+            command.extend(['--effort', self._claude_effort_value()])
 
         if include_partial_messages:
             command.append('--include-partial-messages')
@@ -120,6 +120,12 @@ class ClaudeRunner:
             command.extend(self._settings.claude_disallowed_tools)
 
         return command
+
+    def _claude_effort_value(self) -> str:
+        effort = (self._settings.claude_effort or "").strip().lower()
+        if effort in {"ultracode", "ultra code", "ultra-code", "ultra_code"}:
+            return "max"
+        return effort
 
     def _run(
         self,
