@@ -141,7 +141,7 @@ UI_TEXT: dict[str, dict[str, str]] = {
             "直接发文本即可转发到 {provider}。\n"
             "也支持图片和语音消息。\n"
             "命令: /help /status /health /version /clear /project /project_status /approve /deny "
-            "/model /effort /approve_always /approve_bypass /approve_manual /resume_local "
+            "/model /effort /skills /skill /approve_always /approve_bypass /approve_manual /resume_local "
             "/schedule_reminder /schedule_list /schedule_cancel"
         ),
         "resume_block": "bot: {bot}\nprovider: {provider}\nsession_id: {session_id}\ncwd: {cwd}\ncommand: {command}",
@@ -268,7 +268,7 @@ UI_TEXT: dict[str, dict[str, str]] = {
             "Sende einfach Text, um ihn an {provider} weiterzuleiten.\n"
             "Bilder und Sprachnachrichten werden ebenfalls unterstützt.\n"
             "Befehle: /help /status /health /version /clear /project /project_status /approve /deny "
-            "/model /effort /approve_always /approve_bypass /approve_manual /resume_local "
+            "/model /effort /skills /skill /approve_always /approve_bypass /approve_manual /resume_local "
             "/schedule_reminder /schedule_list /schedule_cancel"
         ),
         "resume_block": "bot: {bot}\nprovider: {provider}\nsession_id: {session_id}\ncwd: {cwd}\ncommand: {command}",
@@ -395,7 +395,7 @@ UI_TEXT: dict[str, dict[str, str]] = {
             "Send plain text to forward it to {provider}.\n"
             "Images and voice messages are also supported.\n"
             "Commands: /help /status /health /version /clear /project /project_status /approve /deny "
-            "/model /effort /approve_always /approve_bypass /approve_manual /resume_local "
+            "/model /effort /skills /skill /approve_always /approve_bypass /approve_manual /resume_local "
             "/schedule_reminder /schedule_list /schedule_cancel"
         ),
         "resume_block": "bot: {bot}\nprovider: {provider}\nsession_id: {session_id}\ncwd: {cwd}\ncommand: {command}",

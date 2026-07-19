@@ -103,7 +103,7 @@ class CodexRunner:
             command.extend(["-m", self._settings.codex_model])
 
         if self._settings.codex_effort:
-            command.extend(["-c", f'model_reasoning_effort="{self._settings.codex_effort}"'])
+            command.extend(["-c", f'model_reasoning_effort="{self._codex_effort_value()}"'])
 
         for image_path in image_paths:
             command.extend(["-i", image_path])
@@ -129,6 +129,12 @@ class CodexRunner:
             self._settings.codex_sandbox == "danger-full-access"
             or self._settings.codex_approval_policy == "never"
         )
+
+    def _codex_effort_value(self) -> str:
+        effort = (self._settings.codex_effort or "").strip().lower()
+        if effort in {"extra high", "extra-high", "extra_high"}:
+            return "xhigh"
+        return effort
 
     def _run(
         self,
@@ -163,8 +169,10 @@ class CodexRunner:
             ) from exc
 
         if completed.returncode != 0:
+            events = self._parse_jsonl(completed.stdout)
             raise CodexRunnerError(
                 f"codex exited with code {completed.returncode}\n"
+                f"codex_json_errors:\n{self._join_lines(self._extract_error_messages(events))}\n"
                 f"stderr:\n{completed.stderr.strip() or '<empty>'}\n"
                 f"stdout:\n{completed.stdout.strip() or '<empty>'}"
             )
@@ -208,11 +216,15 @@ class CodexRunner:
         final_text = ""
         saw_final = False
         stderr_lines: list[str] = []
+        error_lines: list[str] = []
         for line in process.stdout:
             raw_line = line.strip()
             if not raw_line:
                 continue
             payload = json.loads(raw_line)
+            for error_message in self._extract_error_messages([payload]):
+                if error_message not in error_lines:
+                    error_lines.append(error_message)
             session_id = payload.get("thread_id") or session_id
             text = self._extract_event_text(payload)
             if text is not None:
@@ -231,6 +243,7 @@ class CodexRunner:
         if returncode != 0:
             raise CodexRunnerError(
                 f"codex exited with code {returncode}\n"
+                f"codex_json_errors:\n{self._join_lines(error_lines)}\n"
                 f"stderr:\n{self._join_lines(stderr_lines)}"
             )
         if final_text and not saw_final:
@@ -253,6 +266,55 @@ class CodexRunner:
             except json.JSONDecodeError:
                 continue
         return events
+
+    @classmethod
+    def _extract_error_messages(cls, events: list[dict]) -> list[str]:
+        messages: list[str] = []
+        seen: set[str] = set()
+        for event in events:
+            message = cls._extract_error_message(event)
+            if message and message not in seen:
+                seen.add(message)
+                messages.append(message)
+        return messages
+
+    @classmethod
+    def _extract_error_message(cls, event: dict) -> str | None:
+        if event.get("type") == "error":
+            return cls._clean_error_message(event.get("message"))
+
+        item = event.get("item")
+        if isinstance(item, dict) and item.get("type") == "error":
+            return cls._clean_error_message(item.get("message"))
+
+        error = event.get("error")
+        if isinstance(error, dict):
+            return cls._clean_error_message(error.get("message"))
+        if isinstance(error, str):
+            return cls._clean_error_message(error)
+        return None
+
+    @classmethod
+    def _clean_error_message(cls, value: object) -> str | None:
+        if not isinstance(value, str):
+            return None
+        message = value.strip()
+        if not message:
+            return None
+        try:
+            payload = json.loads(message)
+        except json.JSONDecodeError:
+            return message
+        if isinstance(payload, dict):
+            nested_error = payload.get("error")
+            if isinstance(nested_error, dict):
+                nested_message = cls._clean_error_message(nested_error.get("message"))
+                if nested_message:
+                    return nested_message
+            nested_message = cls._clean_error_message(payload.get("message"))
+            if nested_message:
+                return nested_message
+        return message
 
     @staticmethod
     def _extract_session_id(events: list[dict]) -> str | None:

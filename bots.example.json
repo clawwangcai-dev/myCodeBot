@@ -16,7 +16,7 @@
       "BRIDGE_NAME": "codex_bot",
       "TELEGRAM_BOT_TOKEN": "123456:replace-me-codex",
       "BRIDGE_PROVIDER": "codex",
-      "CODEX_MODELS": "gpt-5,gpt-5-mini",
+      "CODEX_MODELS": "",
       "CODEX_EFFORT": "medium",
       "CODEX_EFFORTS": "low,medium,high,extra high",
       "CLAUDE_WORKDIR": "~/projects/codex-workspace",

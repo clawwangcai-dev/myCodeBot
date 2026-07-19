@@ -128,7 +128,7 @@ def ensure_env_file(target: str, config_dir: Path) -> Path:
         WHISPER_THREADS=2
         CODEX_BIN=codex
         CODEX_MODEL=
-        CODEX_MODELS=gpt-5.6
+        CODEX_MODELS=
         CODEX_SANDBOX=workspace-write
         CODEX_APPROVAL_POLICY=on-request
         COPILOT_BIN=copilot

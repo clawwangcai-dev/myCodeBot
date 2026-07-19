@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import threading
 import time
@@ -309,6 +310,10 @@ class TelegramBot:
             value = data.split(":", 1)[1].strip()
             self._core.process_text(conversation, f"/effort {value}")
             return
+        if data.startswith("skill:"):
+            value = data.split(":", 1)[1].strip()
+            self._invoke_skill(conversation, value)
+            return
 
     def _dispatch_message(self, chat_id: int, message: dict[str, Any]) -> None:
         text = (message.get("text") or "").strip()
@@ -350,6 +355,12 @@ class TelegramBot:
         if command == "/effort" and self._is_picker_request(text):
             self._send_effort_picker(conversation)
             return
+        if command == "/skills":
+            self._send_skills_picker(conversation)
+            return
+        if command == "/skill":
+            self._dispatch_skill_command(conversation, text)
+            return
         self._core.process_text(conversation, text)
 
     @staticmethod
@@ -380,6 +391,24 @@ class TelegramBot:
             self._core.build_effort_status_text(conversation),
             reply_markup=self._inline_keyboard("effort", options),
         )
+
+    def _send_skills_picker(self, conversation: ConversationRef) -> None:
+        skills = self._available_skills(include_aliases=False)
+        if not skills:
+            self._send_message(int(conversation.chat_id), "No skills found for this bot.")
+            return
+        self._send_message(
+            int(conversation.chat_id),
+            "Available skills:",
+            reply_markup=self._inline_keyboard("skill", skills),
+        )
+
+    def _dispatch_skill_command(self, conversation: ConversationRef, text: str) -> None:
+        parts = text.split(maxsplit=1)
+        if len(parts) == 1 or not parts[1].strip():
+            self._send_skills_picker(conversation)
+            return
+        self._invoke_skill(conversation, parts[1].strip())
 
     def _model_options(self) -> list[str]:
         if self._settings.provider == "codex":
@@ -422,6 +451,59 @@ class TelegramBot:
                 ]
             )
         return {"inline_keyboard": rows}
+
+    def _available_skills(self, *, include_aliases: bool = True) -> list[str]:
+        roots = self._skill_roots()
+        names: set[str] = set()
+        for root in roots:
+            if not root.exists():
+                continue
+            for dirpath, _, filenames in os.walk(root, followlinks=True):
+                if "SKILL.md" in filenames:
+                    skill_path = Path(dirpath)
+                    names.add(skill_path.name)
+                    try:
+                        relative = skill_path.relative_to(root)
+                    except ValueError:
+                        continue
+                    if len(relative.parts) > 1:
+                        names.add(":".join(relative.parts))
+                        if not include_aliases:
+                            names.discard(skill_path.name)
+        return sorted(names)
+
+    def _skill_roots(self) -> list[Path]:
+        repo_root = Path(__file__).resolve().parent
+        home = Path.home()
+        if self._settings.provider == "codex":
+            return [
+                repo_root / ".codex" / "skills",
+                home / ".codex" / "skills",
+                home / ".agents" / "skills",
+            ]
+        if self._settings.provider == "claude":
+            return [repo_root / ".claude" / "skills", home / ".claude" / "skills"]
+        return []
+
+    def _invoke_skill(self, conversation: ConversationRef, skill_name: str) -> None:
+        available = set(self._available_skills())
+        if skill_name not in available:
+            self._send_message(
+                int(conversation.chat_id),
+                "Skill is not available for this bot:\n"
+                f"requested: {skill_name}\n"
+                f"available: {', '.join(sorted(available)) if available else 'none'}",
+            )
+            return
+
+        if self._settings.provider == "claude":
+            prompt = f"/{skill_name}"
+        else:
+            prompt = (
+                f"Use the {skill_name} skill. "
+                "If you need more task details before applying it, ask one concise follow-up question."
+            )
+        self._core.process_text(conversation, prompt)
 
     def _dispatch_photo(self, chat_id: int, message: dict[str, Any]) -> None:
         photos = message.get("photo") or []
@@ -1121,6 +1203,8 @@ class TelegramBot:
             {"command": "clear", "description": "Clear current session"},
             {"command": "model", "description": "Show or switch the chat model"},
             {"command": "effort", "description": "Show or switch reasoning effort"},
+            {"command": "skills", "description": "Show available skills"},
+            {"command": "skill", "description": "Use a skill by name"},
             {"command": "project", "description": "Set per-chat project directory"},
             {"command": "project_status", "description": "Show current project directory"},
             {"command": "approve", "description": "Approve pending request"},
